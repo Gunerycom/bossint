@@ -1,64 +1,314 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useRef, useCallback } from "react";
+import Header from "./components/Header";
+import EmptyState from "./components/EmptyState";
+import MessageList from "./components/MessageList";
+import ChatInput from "./components/ChatInput";
+import type { Message } from "./components/MessageBubble";
+
+/** Parse a raw SSE buffer chunk and dispatch events */
+function parseSSEEvents(
+  raw: string,
+  handlers: {
+    onSession: (sessionId: string) => void;
+    onStatus: (label: string) => void;
+    onReasoning: (text: string) => void;
+    onAnswer: (text: string) => void;
+    onDone: (answer: string, sources: Array<{ url: string; title?: string }>) => void;
+    onError: (text: string) => void;
+  }
+) {
+  const lines = raw.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) continue;
+
+    const jsonStr = trimmed.slice(5).trim();
+    if (!jsonStr || jsonStr === "[DONE]") continue;
+
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(jsonStr);
+    } catch {
+      continue;
+    }
+
+    const eventType = data.type as string;
+
+    switch (eventType) {
+      case "session":
+        handlers.onSession((data.sessionId as string) || "");
+        break;
+      case "status":
+        handlers.onStatus((data.label as string) || "");
+        break;
+      case "reasoning":
+        handlers.onReasoning((data.text as string) || "");
+        break;
+      case "answer":
+        handlers.onAnswer((data.text as string) || "");
+        break;
+      case "done":
+        handlers.onDone(
+          (data.answer as string) || "",
+          (data.sources as Array<{ url: string; title?: string }>) || []
+        );
+        break;
+      case "error":
+        handlers.onError(
+          (data.text as string) || "Something went wrong. Please try again."
+        );
+        break;
+    }
+  }
+}
 
 export default function Home() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const thinkingStartRef = useRef<number | null>(null);
+
+  const sendMessage = useCallback(async () => {
+    const text = input.trim();
+    if (!text || isStreaming) return;
+
+    // Add user message
+    const userMessage: Message = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: text,
+    };
+
+    const assistantId = `assistant-${Date.now()}`;
+    const assistantMessage: Message = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      reasoning: "",
+      statusLabel: "",
+      sources: [],
+      isStreaming: true,
+    };
+
+    setMessages((prev) => [...prev, userMessage, assistantMessage]);
+    setInput("");
+    setIsStreaming(true);
+    thinkingStartRef.current = Date.now();
+
+    // Create abort controller
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          session_id: sessionId,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error("Request failed");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      // Accumulators for the current assistant message
+      let answerText = "";
+      let reasoningText = "";
+      let currentStatus = "";
+      let receivedDone = false;
+
+      const handlers = {
+        onSession: (sid: string) => {
+          if (sid) setSessionId(sid);
+        },
+        onStatus: (label: string) => {
+          currentStatus = label;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, statusLabel: currentStatus }
+                : m
+            )
+          );
+        },
+        onReasoning: (chunk: string) => {
+          reasoningText += chunk;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, reasoning: reasoningText, statusLabel: currentStatus }
+                : m
+            )
+          );
+        },
+        onAnswer: (chunk: string) => {
+          answerText += chunk;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: answerText }
+                : m
+            )
+          );
+        },
+        onDone: (answer: string, sources: Array<{ url: string; title?: string }>) => {
+          receivedDone = true;
+          const finalAnswer = answer || answerText;
+          const thinkingDuration = thinkingStartRef.current
+            ? Math.round((Date.now() - thinkingStartRef.current) / 1000)
+            : undefined;
+
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    content: finalAnswer,
+                    sources,
+                    isStreaming: false,
+                    thinkingDuration,
+                  }
+                : m
+            )
+          );
+        },
+        onError: (errorText: string) => {
+          receivedDone = true;
+          setMessages((prev) =>
+            prev
+              .filter((m) => m.id !== assistantId)
+              .concat({
+                id: `error-${Date.now()}`,
+                role: "error" as const,
+                content: errorText,
+              })
+          );
+        },
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        // Normalize \r\n to \n
+        buffer = buffer.replace(/\r\n/g, "\n");
+
+        // Process complete SSE events
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() || "";
+
+        for (const part of parts) {
+          if (part.trim()) {
+            parseSSEEvents(part, handlers);
+          }
+        }
+      }
+
+      // ** CRITICAL: Flush any remaining buffer after stream ends **
+      // The final event (often "done") may not have a trailing \n\n
+      if (buffer.trim()) {
+        parseSSEEvents(buffer, handlers);
+      }
+
+      // If stream ended without a done event, finalize the message
+      if (!receivedDone) {
+        const thinkingDuration = thinkingStartRef.current
+          ? Math.round((Date.now() - thinkingStartRef.current) / 1000)
+          : undefined;
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id === assistantId && m.isStreaming) {
+              return {
+                ...m,
+                isStreaming: false,
+                thinkingDuration,
+              };
+            }
+            return m;
+          })
+        );
+      }
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // User cancelled — finalize the message as-is
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id === assistantId && m.isStreaming) {
+              return {
+                ...m,
+                isStreaming: false,
+                content: m.content || "(Cancelled)",
+              };
+            }
+            return m;
+          })
+        );
+      } else {
+        // Connection error
+        setMessages((prev) =>
+          prev
+            .filter((m) => m.id !== assistantId)
+            .concat({
+              id: `error-${Date.now()}`,
+              role: "error",
+              content:
+                "Bossint couldn\u2019t complete this request. Please try again.",
+            })
+        );
+      }
+    } finally {
+      setIsStreaming(false);
+      abortControllerRef.current = null;
+      thinkingStartRef.current = null;
+    }
+  }, [input, isStreaming, sessionId]);
+
+  const stopStreaming = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
+
+  const hasMessages = messages.length > 0;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <div className="flex flex-col h-full">
+      <Header />
+
+      <main className="flex-1 flex flex-col min-h-0">
+        {!hasMessages ? (
+          <>
+            <EmptyState />
+            <ChatInput
+              value={input}
+              onChange={setInput}
+              onSend={sendMessage}
+              onStop={stopStreaming}
+              isStreaming={isStreaming}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+          </>
+        ) : (
+          <>
+            <MessageList messages={messages} />
+            <ChatInput
+              value={input}
+              onChange={setInput}
+              onSend={sendMessage}
+              onStop={stopStreaming}
+              isStreaming={isStreaming}
+            />
+          </>
+        )}
       </main>
     </div>
   );
