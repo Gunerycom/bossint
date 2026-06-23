@@ -2,8 +2,6 @@
 
 import { useRef, useEffect, type KeyboardEvent, type FormEvent } from "react";
 import { useTheme } from "./ThemeProvider";
-import { useTaskStore } from "./TaskStore";
-import { LayoutTemplate } from "lucide-react";
 
 interface ChatInputProps {
   value: string;
@@ -12,6 +10,7 @@ interface ChatInputProps {
   onStop: () => void;
   isStreaming: boolean;
   disabled?: boolean;
+  isCentered?: boolean;
 }
 
 export default function ChatInput({
@@ -21,10 +20,10 @@ export default function ChatInput({
   onStop,
   isStreaming,
   disabled,
+  isCentered = false,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { theme } = useTheme();
-  const { setView } = useTaskStore();
 
   // Focus textarea on mount
   useEffect(() => {
@@ -65,6 +64,101 @@ export default function ChatInput({
     }
   };
 
+  // 1. Centered layout for empty chat landing
+  if (isCentered) {
+    return (
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-3xl mx-auto animate-fade-in text-left"
+      >
+        <div
+          className="relative flex flex-col rounded-[28px] transition-all duration-200 p-6 sm:p-7 shadow-xl border border-[var(--border-color)] bg-[var(--bg-surface)] focus-within:border-[var(--accent)] focus-within:ring-4 focus-within:ring-[var(--accent)]/10"
+        >
+          {/* 1st Row: Textarea */}
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="How can I help you today?"
+            disabled={isStreaming || disabled}
+            rows={2}
+            className="w-full bg-transparent outline-none text-base sm:text-lg placeholder:text-[var(--text-tertiary)] disabled:opacity-50 resize-none"
+            style={{
+              color: "var(--text-primary)",
+              maxHeight: "200px",
+            }}
+          />
+
+          {/* 2nd Row: Actions Toolbar */}
+          <div className="flex items-center justify-between mt-4">
+            {/* Left Side */}
+            <button
+              type="button"
+              className="w-9 h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+              title="Add attachment"
+            >
+              {/* Plus icon */}
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </button>
+
+            {/* Right Side */}
+            <div className="flex items-center gap-5 text-[var(--text-secondary)]">
+              {/* Voice Input Icon */}
+              <button
+                type="button"
+                className="w-9 h-9 flex items-center justify-center hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                title="Voice input"
+              >
+                <svg className="w-5.5 h-5.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3v-6a3 3 0 00-6 0v6a3 3 0 003 3z" />
+                </svg>
+              </button>
+
+              {/* Submit Arrow Button */}
+              {isStreaming ? (
+                <button
+                  type="button"
+                  onClick={onStop}
+                  className="w-9 h-9 flex items-center justify-center rounded-full transition-all duration-150 cursor-pointer shadow-sm"
+                  style={{
+                    backgroundColor: "var(--error-bg)",
+                    color: "var(--error-text)",
+                  }}
+                  title="Stop generating"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-4 h-4"
+                  >
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!value.trim() || disabled}
+                  className="w-9 h-9 flex items-center justify-center rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white disabled:opacity-30 disabled:hover:bg-[var(--accent)] transition-all cursor-pointer shadow-sm"
+                  title="Ask AI"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </form>
+    );
+  }
+
+  // 2. Default bottom pinned layout
   return (
     <div
       className="sticky bottom-0 w-full px-4 sm:px-6 pb-4 pt-2"
@@ -74,34 +168,12 @@ export default function ChatInput({
     >
       <form
         onSubmit={handleSubmit}
-        className="max-w-[820px] mx-auto"
+        className="max-w-[820px] mx-auto text-left"
       >
         <div
-          className="relative flex items-end rounded-2xl transition-all duration-200"
-          style={{
-            backgroundColor: "var(--bg-surface)",
-            border: "1px solid var(--border-color)",
-            boxShadow: "var(--shadow-md)",
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = "var(--accent)";
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = "var(--border-color)";
-          }}
+          className="relative flex flex-col rounded-2xl transition-all duration-200 p-4 shadow-md border border-[var(--border-color)] bg-[var(--bg-surface)] focus-within:border-[var(--accent)] focus-within:ring-4 focus-within:ring-[var(--accent)]/10"
         >
-          {/* Logo before input */}
-          <div className="flex-shrink-0 pl-4 pb-3.5 flex items-center justify-center select-none">
-            <img
-              src="/bossint-b.png"
-              alt=""
-              className="w-5 h-5"
-              style={{
-                filter: theme === "dark" ? "invert(1)" : "none",
-              }}
-            />
-          </div>
-
+          {/* 1st Row: Textarea */}
           <textarea
             ref={textareaRef}
             value={value}
@@ -110,93 +182,77 @@ export default function ChatInput({
             placeholder="Ask Bossint anything..."
             disabled={isStreaming || disabled}
             rows={1}
-            className="flex-1 resize-none bg-transparent pl-2 pr-4 py-3.5 text-[0.935rem] leading-relaxed outline-none placeholder:text-[var(--text-tertiary)] disabled:opacity-50"
+            className="w-full resize-none bg-transparent outline-none text-sm placeholder:text-[var(--text-tertiary)] disabled:opacity-50"
             style={{
               color: "var(--text-primary)",
-              maxHeight: "200px",
+              maxHeight: "180px",
             }}
           />
 
-          {/* Send / Stop button */}
-          <div className="flex-shrink-0 p-2 flex items-center gap-1">
+          {/* 2nd Row: Actions Toolbar */}
+          <div className="flex items-center justify-between mt-2.5 pt-1">
+            {/* Left Side */}
             <button
               type="button"
-              onClick={() => setView("explore")}
-              title="Explore blueprints"
-              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
+              className="w-8 h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+              title="Add attachment"
             >
-              <LayoutTemplate className="w-[18px] h-[18px]" strokeWidth={1.5} />
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
             </button>
 
-            {isStreaming ? (
+            {/* Right Side */}
+            <div className="flex items-center gap-4 text-[var(--text-secondary)]">
+              {/* Voice Input Icon */}
               <button
                 type="button"
-                onClick={onStop}
-                aria-label="Stop generating"
-                className="w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 cursor-pointer"
-                style={{
-                  backgroundColor: "var(--error-bg)",
-                  color: "var(--error-text)",
-                }}
+                className="w-8 h-8 flex items-center justify-center hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                title="Voice input"
               >
-                {/* Stop icon */}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="w-4 h-4"
-                >
-                  <rect x="6" y="6" width="12" height="12" rx="2" />
+                <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3v-6a3 3 0 00-6 0v6a3 3 0 003 3z" />
                 </svg>
               </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={!value.trim() || disabled}
-                aria-label="Send message"
-                className="w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                style={{
-                  backgroundColor: value.trim()
-                    ? "var(--accent)"
-                    : "var(--bg-surface-hover)",
-                  color: value.trim() ? "#FFFFFF" : "var(--text-tertiary)",
-                }}
-                onMouseEnter={(e) => {
-                  if (value.trim()) {
-                    e.currentTarget.style.backgroundColor = "var(--accent-hover)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (value.trim()) {
-                    e.currentTarget.style.backgroundColor = "var(--accent)";
-                  }
-                }}
-              >
-                {/* Arrow up icon */}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-4 h-4"
+
+              {/* Waveform / Send Button */}
+              {isStreaming ? (
+                <button
+                  type="button"
+                  onClick={onStop}
+                  aria-label="Stop generating"
+                  className="w-8 h-8 flex items-center justify-center rounded-full transition-all duration-150 cursor-pointer shadow-sm"
+                  style={{
+                    backgroundColor: "var(--error-bg)",
+                    color: "var(--error-text)",
+                  }}
                 >
-                  <line x1="12" y1="19" x2="12" y2="5" />
-                  <polyline points="5 12 12 5 19 12" />
-                </svg>
-              </button>
-            )}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-3.5 h-3.5"
+                  >
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!value.trim() || disabled}
+                  aria-label="Send message"
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white disabled:opacity-30 disabled:hover:bg-[var(--accent)] transition-all cursor-pointer shadow-sm"
+                  title="Ask AI"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
         </div>
-
-        <p
-          className="text-xs text-center mt-2 select-none"
-          style={{ color: "var(--text-tertiary)" }}
-        >
-          Bossint can make mistakes. Verify important information.
-        </p>
       </form>
     </div>
   );

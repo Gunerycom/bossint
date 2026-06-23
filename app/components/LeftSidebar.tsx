@@ -16,6 +16,7 @@ import {
   Sun,
   Moon,
   LogOut,
+  Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -44,9 +45,11 @@ export default function LeftSidebar({
   } = useTaskStore();
 
   const handleNewResearch = () => {
-    createConversation();
+    setActiveConversationId(null);
+    setView("chat");
     setIsMobileOpen(false);
   };
+
 
   const selectConversation = (id: string) => {
     setActiveConversationId(id);
@@ -54,9 +57,9 @@ export default function LeftSidebar({
     setIsMobileOpen(false);
   };
 
-  const handleNavClick = (view: "welcome" | "explore" | "dashboard") => {
+  const handleNavClick = (view: "welcome" | "explore" | "dashboard" | "settings") => {
     setView(view);
-    if (view !== "welcome") {
+    if (view !== "welcome" && view !== "settings") {
       setActiveConversationId(null);
     }
     setIsMobileOpen(false);
@@ -64,9 +67,10 @@ export default function LeftSidebar({
 
   const renderNavItems = () => {
     const items = [
-      { id: "welcome", label: "New Research", icon: Plus, action: handleNewResearch },
-      { id: "explore", label: "Explore Templates", icon: Compass, action: () => handleNavClick("explore") },
-      { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, action: () => handleNavClick("dashboard") },
+      { id: "welcome", label: "Intelligence Hub", icon: Sparkles, action: () => handleNavClick("welcome") },
+      { id: "chat", label: "Research Chat", icon: Plus, action: handleNewResearch },
+      { id: "explore", label: "Agent Library", icon: Compass, action: () => handleNavClick("explore") },
+      { id: "dashboard", label: "Command Center", icon: LayoutDashboard, action: () => handleNavClick("dashboard") },
     ] as const;
 
     return (
@@ -74,7 +78,7 @@ export default function LeftSidebar({
         {items.map((item) => {
           const Icon = item.icon;
           const isActive =
-            item.id === "welcome"
+            item.id === "chat"
               ? currentView === "chat" && !activeConversationId
               : currentView === item.id;
 
@@ -291,6 +295,19 @@ export default function LeftSidebar({
             >
               <HelpCircle className="w-5 h-5 flex-shrink-0" strokeWidth={1.5} />
               {!isCollapsed && <span className="truncate">Help & Guide</span>}
+            </button>
+
+            {/* Settings */}
+            <button
+              onClick={() => handleNavClick("settings")}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                currentView === "settings"
+                  ? "bg-[var(--bg-surface-hover)] text-[var(--accent)]"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)]"
+              }`}
+            >
+              <Settings className="w-5 h-5 flex-shrink-0" strokeWidth={1.5} />
+              {!isCollapsed && <span className="truncate">Settings</span>}
             </button>
 
             {/* Sign Out */}

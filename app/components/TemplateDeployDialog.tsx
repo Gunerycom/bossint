@@ -23,12 +23,6 @@ const SCHEDULE_PRESETS = [
   { label: "Weekly", value: "weekly" },
 ];
 
-const TASK_TYPE_OPTIONS: { value: Task["type"]; label: string; desc: string }[] = [
-  { value: "track", label: "Track", desc: "Monitor changes over time" },
-  { value: "crawl", label: "Crawl", desc: "Scrape web content" },
-  { value: "monitor", label: "Monitor", desc: "Watch for events" },
-  { value: "custom", label: "Custom", desc: "Custom automation" },
-];
 
 export default function TemplateDeployDialog({
   isOpen,
@@ -41,6 +35,7 @@ export default function TemplateDeployDialog({
   const [prompt, setPrompt] = useState("");
   const [taskType, setTaskType] = useState<Task["type"]>("track");
   const [schedule, setSchedule] = useState("daily");
+  const [customSchedule, setCustomSchedule] = useState("");
   const [isDeploying, setIsDeploying] = useState(false);
 
   useEffect(() => {
@@ -48,6 +43,7 @@ export default function TemplateDeployDialog({
       setName(template.title);
       setPrompt(template.prompt);
       setTaskType(template.taskType);
+      setCustomSchedule("");
       
       // Try to match schedule label or default
       const matchedPreset = SCHEDULE_PRESETS.find(
@@ -64,12 +60,14 @@ export default function TemplateDeployDialog({
 
     setIsDeploying(true);
 
+    const finalSchedule = customSchedule.trim() || schedule;
+
     if (onDeploy) {
       onDeploy({
         name: name.trim(),
         prompt: prompt.trim(),
         taskType,
-        schedule,
+        schedule: finalSchedule,
       });
       setIsDeploying(false);
       return;
@@ -81,10 +79,10 @@ export default function TemplateDeployDialog({
     
     // Parse interval
     let intervalMs = 24 * 60 * 60 * 1000; // default daily
-    if (schedule.includes("1 hour")) intervalMs = 60 * 60 * 1000;
-    else if (schedule.includes("6 hours")) intervalMs = 6 * 60 * 60 * 1000;
-    else if (schedule.includes("12 hours")) intervalMs = 12 * 60 * 60 * 1000;
-    else if (schedule === "weekly") intervalMs = 7 * 24 * 60 * 60 * 1000;
+    if (finalSchedule.includes("1 hour")) intervalMs = 60 * 60 * 1000;
+    else if (finalSchedule.includes("6 hours")) intervalMs = 6 * 60 * 60 * 1000;
+    else if (finalSchedule.includes("12 hours")) intervalMs = 12 * 60 * 60 * 1000;
+    else if (finalSchedule === "weekly") intervalMs = 7 * 24 * 60 * 60 * 1000;
 
     const newTask: Task = {
       id: taskId,
@@ -93,7 +91,7 @@ export default function TemplateDeployDialog({
       type: taskType,
       status: "active",
       schedule: {
-        label: SCHEDULE_PRESETS.find((p) => p.value === schedule)?.label || "Daily",
+        label: SCHEDULE_PRESETS.find((p) => p.value === finalSchedule)?.label || finalSchedule,
         intervalMs,
       },
       target: name.trim(),
@@ -108,7 +106,7 @@ export default function TemplateDeployDialog({
 
     // 3. Trigger command upstream so backend creates it
     // Format: "track 'Bitcoin Price Tracker' every 6 hours: Analyze Bitcoin..."
-    const nlpCommand = `${taskType} "${name.trim()}" ${schedule}: ${prompt.trim()}`;
+    const nlpCommand = `${taskType} "${name.trim()}" ${finalSchedule}: ${prompt.trim()}`;
     triggerCommand(nlpCommand);
 
     // 4. Redirect to Dashboard & close
@@ -144,28 +142,9 @@ export default function TemplateDeployDialog({
           />
         </div>
 
-        {/* Task Type and Schedule Row */}
+        {/* Schedule & Custom in 2 Columns */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Task Type */}
-          <div>
-            <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
-              Objective Type
-            </label>
-            <select
-              value={taskType}
-              onChange={(e) => setTaskType(e.target.value as Task["type"])}
-              className="w-full px-4 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] text-sm transition-colors"
-              disabled={isDeploying}
-            >
-              {TASK_TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label} ({opt.desc})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Schedule */}
+          {/* Execution Schedule */}
           <div>
             <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
               Execution Schedule
@@ -182,6 +161,21 @@ export default function TemplateDeployDialog({
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Custom */}
+          <div>
+            <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
+              Custom
+            </label>
+            <input
+              type="text"
+              value={customSchedule}
+              onChange={(e) => setCustomSchedule(e.target.value)}
+              placeholder="Every monday at 9 am"
+              className="w-full px-4 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder-gray-400 focus:outline-none focus:border-[var(--accent)] text-sm transition-colors"
+              disabled={isDeploying}
+            />
           </div>
         </div>
 

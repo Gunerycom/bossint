@@ -5,7 +5,8 @@ import {
   Mail, ArrowRight, Lock, Eye, EyeOff, Laptop, HelpCircle, 
   Sparkles, Play, Search, Coins, TrendingUp, Globe, Calendar, 
   Anchor, DollarSign, ShieldAlert, Compass, Heart, AlertTriangle,
-  Check
+  Check, Code, Copy, Terminal, CheckCircle2, ChevronRight, Trophy,
+  Star, ShoppingBag, Home, Scale
 } from "lucide-react";
 import Dialog, { DialogButton } from "./Dialog";
 import { TEMPLATES, TEMPLATE_CATEGORIES, AgentTemplate } from "../lib/templateData";
@@ -181,6 +182,270 @@ export default function LandingPage({ onLogin }: LandingPageProps) {
   const [modalError, setModalError] = useState("");
   const [showModalPassword, setShowModalPassword] = useState(false);
   const [pricingTab, setPricingTab] = useState<"individual" | "team">("individual");
+
+  // Developer section states
+  const [activeCodeTab, setActiveCodeTab] = useState<"curl" | "ts" | "py">("curl");
+  const [apiState, setApiState] = useState<"idle" | "loading" | "success">("idle");
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [activeCaseStudyIndex, setActiveCaseStudyIndex] = useState(0);
+
+  const getCaseStudyPrompt = (index: number) => {
+    switch (index) {
+      case 0: return "Get last night OHL scores and quote highlights";
+      case 1: return "Check sightings tracker for target: Keanu Reeves";
+      case 2: return "Optimize prices for: boss-headphones-max";
+      case 3: return "Scan zipcode: 90210 for deals under median";
+      case 4: return "Check EPA regulations updates for chemical tariffs";
+      default: return "Run agent group scan";
+    }
+  };
+
+  const getCaseStudyResponse = (index: number) => {
+    switch (index) {
+      case 0:
+        return {
+          status: "success",
+          agent_group: "canada-hockey-hub",
+          execution_time_ms: 1280,
+          data: {
+            highlights: [
+              {
+                game: "London Knights (4) vs Windsor Spitfires (3) - OT",
+                key_quote: "\"We kept pushing and got rewarded.\" - Coach Hunter"
+              },
+              {
+                game: "Seattle Thunderbirds (5) vs Portland Winterhawks (2)",
+                key_quote: "\"Total team effort tonight.\" - Sawchyn"
+              }
+            ],
+            scraped_sources: ["ohl.ca/news", "whl.ca/games"]
+          }
+        };
+      case 1:
+        return {
+          status: "success",
+          agent_group: "celebrity-intel-tracker",
+          execution_time_ms: 1540,
+          data: {
+            status: "Verified Sighting",
+            target: "Keanu Reeves",
+            location: "Toronto Pearson Int'l (YYZ)",
+            timestamp: "2026-06-22T21:45:00Z",
+            signals: [
+              { source: "Flight Tracker Agent", match: "Private Charter tail #N109K landed" },
+              { source: "Social Media Monitor", match: "\"Just saw Keanu Reeves at baggage claim YYZ!\"" }
+            ]
+          }
+        };
+      case 2:
+        return {
+          status: "success",
+          agent_group: "ecommerce-price-optimizer",
+          execution_time_ms: 940,
+          data: {
+            product_id: "boss-headphones-max",
+            our_price: 299.00,
+            competitor_prices: {
+              amazon: 295.00,
+              bestbuy: 299.00,
+              target: 310.00
+            },
+            action: "Price Updated via Webhook",
+            new_price: 292.00,
+            margin_preserved: "14.2%"
+          }
+        };
+      case 3:
+        return {
+          status: "success",
+          agent_group: "real-estate-discount-finder",
+          execution_time_ms: 2100,
+          data: {
+            zipcode: "90210",
+            median_neighborhood_price: 3200000,
+            deals_found: [
+              {
+                address: "1245 Rexford Dr, Los Angeles",
+                listed_price: 2690000,
+                pct_below_median: "15.9%",
+                source: "Redfin Crawl Agent"
+              }
+            ]
+          }
+        };
+      case 4:
+        return {
+          status: "success",
+          agent_group: "regulatory-policy-compliance",
+          execution_time_ms: 1820,
+          data: {
+            agency: "EPA / Federal Register",
+            keyword: "chemical tariffs",
+            updates_detected: 1,
+            change_log: {
+              action: "Rule amendment proposed for Subchapter R",
+              impact_score: "High (Manufacturing risks flagged)",
+              date_effective: "2026-07-01"
+            }
+          }
+        };
+      default:
+        return { status: "success" };
+    }
+  };
+
+  const runApiSim = () => {
+    setApiState("loading");
+    setTimeout(() => {
+      setApiState("success");
+    }, 1200);
+  };
+
+  const copyCodeText = () => {
+    let text = "";
+    const groupIds = ["canada-hockey", "celebrity-checker", "price-watcher", "realestate-radar", "policy-tracker"];
+    const selectedGroupId = groupIds[activeCaseStudyIndex] || "canada-hockey";
+    const prompt = getCaseStudyPrompt(activeCaseStudyIndex);
+    
+    if (activeCodeTab === "curl") {
+      text = `curl -X POST "https://api.bossint.ai/v1/agent-groups/\${selectedGroupId}/run" \\\n  -H "Authorization: Bearer boss_live_8a92f08a" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "query": "\${prompt}",\n    "format": "json"\n  }'`;
+    } else if (activeCodeTab === "ts") {
+      text = `import { BossintClient } from "@bossint/sdk";\n\nconst bossint = new BossintClient({ apiKey: "boss_live_8a92f08a" });\n\nconst result = await bossint.agentGroups.run("\${selectedGroupId}", {\n  query: "\${prompt}",\n  format: "json"\n});\n\nconsole.log(result.data);`;
+    } else if (activeCodeTab === "py") {
+      text = `from bossint import BossintClient\n\nclient = BossintClient(api_key="boss_live_8a92f08a")\n\nresult = client.agent_groups.run(\n    group_id="\${selectedGroupId}",\n    query="\${prompt}",\n    format="json"\n)\n\nprint(result["data"])`;
+    }
+    
+    navigator.clipboard.writeText(text);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const renderCaseStudyIcon = (iconName: string, isActive: boolean) => {
+    const colorClass = isActive ? "text-indigo-600" : "text-neutral-500";
+    switch (iconName) {
+      case "Trophy":
+        return <Trophy className={`w-5 h-5 ${colorClass}`} />;
+      case "Star":
+        return <Star className={`w-5 h-5 ${colorClass}`} />;
+      case "ShoppingBag":
+        return <ShoppingBag className={`w-5 h-5 ${colorClass}`} />;
+      case "Home":
+        return <Home className={`w-5 h-5 ${colorClass}`} />;
+      case "Scale":
+        return <Scale className={`w-5 h-5 ${colorClass}`} />;
+      default:
+        return <Sparkles className={`w-5 h-5 ${colorClass}`} />;
+    }
+  };
+
+  const CASE_STUDIES = [
+    {
+      id: "canada-hockey",
+      title: "Canada Hockey News App",
+      category: "Sports Media",
+      icon: "Trophy",
+      shortDesc: "Automatically crawls junior hockey leagues, scrapes game summaries, stats, and quotes, and posts them to a sports news feed.",
+      pipeline: [
+        { name: "OHL / WHL Crawlers", desc: "Monitors game feeds & scrapes post-game summaries" },
+        { name: "Quote Scraper", desc: "Extracts key player/coach interview quotes" },
+        { name: "Sportswriter Agent", desc: "Compiles a clean markdown news brief + highlights" }
+      ]
+    },
+    {
+      id: "celebrity-checker",
+      title: "Celebrity Sightings Checker",
+      category: "OSINT Research",
+      icon: "Star",
+      shortDesc: "Monitors social handles, news mentions, and airport flight logs to track and cross-reference celebrity sightings and public movements.",
+      pipeline: [
+        { name: "Social Media Watcher", desc: "Monitors Twitter/X, Instagram geotags, and news feeds" },
+        { name: "Flight Log Agent", desc: "Scrapes flight registration codes and arrivals" },
+        { name: "Cross-Reference Hub", desc: "Matches time & location to verify sighting certainty" }
+      ]
+    },
+    {
+      id: "price-watcher",
+      title: "E-Commerce Price War Watcher",
+      category: "Competitive Retail",
+      icon: "ShoppingBag",
+      shortDesc: "Checks competitor sites hourly (Amazon, Shopify), matches prices, and auto-updates your product's pricing API to match.",
+      pipeline: [
+        { name: "Competitor Scrapers", desc: "Crawls pricing matrices from Amazon and BestBuy" },
+        { name: "Pricing Engine Agent", desc: "Applies 1% discount logic and checks baseline margin rules" },
+        { name: "Pricing API Webhook", desc: "Triggers immediate update on your e-commerce storefront" }
+      ]
+    },
+    {
+      id: "realestate-radar",
+      title: "Real Estate Discount Radar",
+      category: "PropTech & Investment",
+      icon: "Home",
+      shortDesc: "Scrapes local property listings daily, flags listings priced 15% below neighborhood average, and notifies investment syndicates.",
+      pipeline: [
+        { name: "Listing Parser", desc: "Crawls MLS, Redfin and Zillow for new property releases" },
+        { name: "Valuation Estimator", desc: "Calculates neighborhood average and highlights outliers" },
+        { name: "Alert Syndicate API", desc: "Pushes qualified deal brief to Slack and investor emails" }
+      ]
+    },
+    {
+      id: "policy-tracker",
+      title: "Regulatory Compliance Tracker",
+      category: "Enterprise Legal",
+      icon: "Scale",
+      shortDesc: "Monitors official government bulletins and federal register feeds daily for changes in environmental regulations or tariffs.",
+      pipeline: [
+        { name: "Federal Bulletin Crawler", desc: "Checks Federal Register and EPA policy pages daily" },
+        { name: "Impact Assessor Agent", desc: "Flags compliance changes matching client chemical list" },
+        { name: "Advisory Auto-Mailer", desc: "Drafts and sends regulatory risk bulletins to compliance heads" }
+      ]
+    }
+  ];
+
+  const getCodeContent = () => {
+    const groupIds = ["canada-hockey", "celebrity-checker", "price-watcher", "realestate-radar", "policy-tracker"];
+    const selectedGroupId = groupIds[activeCaseStudyIndex] || "canada-hockey";
+    
+    switch (activeCodeTab) {
+      case "curl":
+        return (
+          <code className="text-neutral-300 font-mono text-xs leading-relaxed block whitespace-pre">
+            <span className="text-neutral-500"># Run agent group via cURL</span>{"\n"}
+            <span className="text-indigo-400">curl</span> -X POST <span className="text-emerald-400">"https://api.bossint.ai/v1/agent-groups/{selectedGroupId}/run"</span> \{'\n'}
+            {"  "}-H <span className="text-emerald-400">"Authorization: Bearer boss_live_8a92f08a"</span> \{'\n'}
+            {"  "}-H <span className="text-emerald-400">"Content-Type: application/json"</span> \{'\n'}
+            {"  "}-d <span className="text-amber-400">'{'{'}'</span>{"\n"}
+            {"    "}<span className="text-cyan-400">"query"</span>: <span className="text-emerald-400">"{getCaseStudyPrompt(activeCaseStudyIndex)}"</span>,{"\n"}
+            {"    "}<span className="text-cyan-400">"format"</span>: <span className="text-emerald-400">"json"</span>{"\n"}
+            {"  "}<span className="text-amber-400">'{'}'}'</span>
+          </code>
+        );
+      case "ts":
+        return (
+          <code className="text-neutral-300 font-mono text-xs leading-relaxed block whitespace-pre">
+            <span className="text-pink-400">import</span> <span className="text-amber-400">{'{'}</span> BossintClient <span className="text-amber-400">{'}'}</span> <span className="text-pink-400">from</span> <span className="text-emerald-400">"@bossint/sdk"</span>;{"\n\n"}
+            <span className="text-pink-400">const</span> bossint = <span className="text-pink-400">new</span> <span className="text-amber-400">BossintClient</span><span className="text-neutral-400">({'{'}</span> apiKey: <span className="text-emerald-400">"boss_live_8a92f08a"</span> <span className="text-neutral-400">{'}'})</span>;{"\n\n"}
+            <span className="text-pink-400">const</span> result = <span className="text-pink-400">await</span> bossint.agentGroups.run(<span className="text-emerald-400">"{selectedGroupId}"</span>, <span className="text-neutral-400">{'{'}</span>{"\n"}
+            {"  "}query: <span className="text-emerald-400">"{getCaseStudyPrompt(activeCaseStudyIndex)}"</span>,{"\n"}
+            {"  "}format: <span className="text-emerald-400">"json"</span>{"\n"}
+            <span className="text-neutral-400">{'}'}</span>);{"\n\n"}
+            console.log(result.data);
+          </code>
+        );
+      case "py":
+        return (
+          <code className="text-neutral-300 font-mono text-xs leading-relaxed block whitespace-pre">
+            <span className="text-pink-400">from</span> bossint <span className="text-pink-400">import</span> BossintClient{"\n\n"}
+            client = <span className="text-amber-400">BossintClient</span>(api_key=<span className="text-emerald-400">"boss_live_8a92f08a"</span>){"\n\n"}
+            result = client.agent_groups.run({"\n"}
+            {"    "}group_id=<span className="text-emerald-400">"{selectedGroupId}"</span>,{"\n"}
+            {"    "}query=<span className="text-emerald-400">"{getCaseStudyPrompt(activeCaseStudyIndex)}"</span>,{"\n"}
+            {"    "}format=<span className="text-emerald-400">"json"</span>{"\n"}
+            ){"\n\n"}
+            <span className="text-pink-400">print</span>(result[<span className="text-emerald-400">"data"</span>])
+          </code>
+        );
+    }
+  };
 
   const renderAgentIcon = (name: string) => {
     switch (name) {
@@ -657,7 +922,6 @@ export default function LandingPage({ onLogin }: LandingPageProps) {
           </button>
         </div>
       </div>
-
       {/* SECTION 3: PRICING */}
       <div id="pricing" className="w-full bg-[#FBF9F6] py-24 px-6 lg:px-16 border-t border-[#E8E4DC] flex-shrink-0 animate-fade-in font-sans">
         <div className="max-w-6xl mx-auto text-center space-y-4 mb-12">
@@ -1076,6 +1340,255 @@ export default function LandingPage({ onLogin }: LandingPageProps) {
         </div>
       </div>
 
+      {/* SECTION 2.5: DEVELOPER HUB (Light Section) */}
+      <div id="developers" className="w-full bg-[#FAF8F5] py-24 px-6 lg:px-16 border-t border-[#E8E4DC] flex-shrink-0 animate-fade-in font-sans">
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes pipelineFlow {
+            0% { left: -20%; }
+            100% { left: 120%; }
+          }
+          .animate-pipeline-flow {
+            animation: pipelineFlow 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+          }
+        `}} />
+
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+          {/* LEFT COLUMN: Message and interactive terminal */}
+          <div className="space-y-6 text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-600/15 bg-indigo-600/5 text-indigo-700 text-xs font-semibold">
+              <Code className="w-3.5 h-3.5" />
+              <span>Developer Platform</span>
+            </div>
+            
+            <h2 className="text-3xl lg:text-[40px] font-extrabold tracking-tight text-neutral-800 leading-[1.1] font-sans">
+              Build custom agents, orchestrate groups, and deploy production-ready APIs.
+            </h2>
+            
+            <p className="text-sm text-neutral-600 leading-relaxed max-w-xl">
+              Turn autonomous intelligence workflows into instant HTTP endpoints. Combine web crawling, LLM synthesis, and data-monitoring tools into orchestrated pipelines, then query them programmatically from your product or client apps.
+            </p>
+
+            {/* MOCK IDE CODE WINDOW */}
+            <div className="w-full bg-[#16161A] rounded-3xl border border-neutral-800 shadow-xl overflow-hidden mt-8 transition-all">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3.5 bg-[#0F0F12] border-b border-neutral-800/80 select-none">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-neutral-700"></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-neutral-700"></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-neutral-700"></span>
+                  </div>
+                  <span className="text-[10px] text-neutral-500 font-mono ml-2 font-medium">api-playground.sh</span>
+                </div>
+                
+                <div className="flex bg-[#1E1E24] border border-neutral-800/80 rounded-lg p-0.5 text-[10px] font-mono font-semibold text-neutral-400">
+                  <button
+                    type="button"
+                    onClick={() => { setActiveCodeTab("curl"); setApiState("idle"); }}
+                    className={`px-3 py-1 rounded-md transition cursor-pointer ${activeCodeTab === "curl" ? "bg-[#16161A] text-white shadow-sm" : "hover:text-neutral-200"}`}
+                  >
+                    cURL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveCodeTab("ts"); setApiState("idle"); }}
+                    className={`px-3 py-1 rounded-md transition cursor-pointer ${activeCodeTab === "ts" ? "bg-[#16161A] text-white shadow-sm" : "hover:text-neutral-200"}`}
+                  >
+                    TypeScript
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveCodeTab("py"); setApiState("idle"); }}
+                    className={`px-3 py-1 rounded-md transition cursor-pointer ${activeCodeTab === "py" ? "bg-[#16161A] text-white shadow-sm" : "hover:text-neutral-200"}`}
+                  >
+                    Python
+                  </button>
+                </div>
+              </div>
+
+              {/* Code display */}
+              <div className="p-5 overflow-x-auto min-h-[160px] bg-[#16161A] border-b border-neutral-800/50">
+                {getCodeContent()}
+              </div>
+
+              {/* Action Bar */}
+              <div className="flex items-center justify-between px-5 py-3 bg-[#0F0F12] border-t border-neutral-800/50 select-none">
+                <button
+                  type="button"
+                  onClick={runApiSim}
+                  disabled={apiState === "loading"}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm active:scale-95"
+                >
+                  <Play className="w-3 h-3 fill-current" />
+                  <span>Run API Request</span>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={copyCodeText}
+                  className="flex items-center gap-1.5 text-neutral-400 hover:text-white px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition active:scale-95"
+                >
+                  {copiedCode ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="text-emerald-500">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy Snippet</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Output Console */}
+              <div className="bg-[#0B0B0E] border-t border-neutral-800/60 p-5 font-mono text-[11px] text-neutral-400 relative min-h-[160px] max-h-[320px] overflow-y-auto">
+                <div className="flex items-center justify-between text-neutral-500 mb-3 border-b border-neutral-900 pb-2 select-none">
+                  <span>API RESPONSE</span>
+                  {apiState === "success" && (
+                    <span className="text-emerald-500 flex items-center gap-1 font-semibold text-[10px]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                      HTTP 200 OK
+                    </span>
+                  )}
+                  {apiState === "loading" && (
+                    <span className="text-indigo-400 flex items-center gap-1 font-semibold text-[10px]">
+                      <span className="w-2 h-2 rounded-full border border-indigo-400 border-t-transparent animate-spin"></span>
+                      EXECUTING PIPELINE...
+                    </span>
+                  )}
+                  {apiState === "idle" && <span>READY TO RUN</span>}
+                </div>
+
+                {apiState === "idle" && (
+                  <div className="flex flex-col items-center justify-center py-10 text-neutral-600 select-none">
+                    <Terminal className="w-8 h-8 mb-2 opacity-40 text-neutral-500" strokeWidth={1.5} />
+                    <span className="text-neutral-500">Trigger standard JSON output above</span>
+                  </div>
+                )}
+
+                {apiState === "loading" && (
+                  <div className="space-y-1.5 text-neutral-400 leading-relaxed text-left">
+                    <p className="text-neutral-500 font-mono">&gt; POST /v1/agent-groups/{CASE_STUDIES[activeCaseStudyIndex].id}/run HTTP/1.1</p>
+                    <p className="text-neutral-500 font-mono">&gt; Host: api.bossint.ai</p>
+                    <p className="text-neutral-600 font-bold mt-2.5 flex items-center gap-2">
+                      <span className="w-1.5 h-3 bg-indigo-500 rounded animate-pulse"></span>
+                      Calling {CASE_STUDIES[activeCaseStudyIndex].pipeline[0].name}...
+                    </p>
+                    <p className="text-neutral-600 font-bold flex items-center gap-2">
+                      <span className="w-1.5 h-3 bg-indigo-400 rounded animate-pulse"></span>
+                      Synthesizing details with {CASE_STUDIES[activeCaseStudyIndex].pipeline[1].name}...
+                    </p>
+                  </div>
+                )}
+
+                {apiState === "success" && (
+                  <pre className="text-emerald-400/90 whitespace-pre overflow-x-auto select-all leading-normal text-left font-mono">
+                    {JSON.stringify(getCaseStudyResponse(activeCaseStudyIndex), null, 2)}
+                  </pre>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Case Studies list */}
+          <div className="space-y-4 text-left">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 select-none mb-3">
+              Production Use Cases
+            </h3>
+
+            <div className="space-y-3">
+              {CASE_STUDIES.map((study, idx) => {
+                const isActive = activeCaseStudyIndex === idx;
+                return (
+                  <div
+                    key={study.id}
+                    onClick={() => {
+                      setActiveCaseStudyIndex(idx);
+                      setApiState("idle");
+                    }}
+                    className={`group w-full rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden p-5 text-left ${
+                      isActive
+                        ? "bg-white border-indigo-400/80 shadow-md"
+                        : "bg-white/50 border-[#E8E4DC] hover:border-neutral-300 hover:bg-white/80"
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className={`p-2.5 rounded-xl transition ${isActive ? "bg-indigo-600/5" : "bg-neutral-100"}`}>
+                        {renderCaseStudyIcon(study.icon, isActive)}
+                      </div>
+                      
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className={`text-sm font-bold truncate transition ${isActive ? "text-indigo-600" : "text-neutral-800"}`}>
+                            {study.title}
+                          </h4>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-indigo-600/10 text-indigo-700" : "bg-neutral-100 text-neutral-500"}`}>
+                            {study.category}
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-500 leading-relaxed">
+                          {study.shortDesc}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Active Expanded pipeline flow */}
+                    {isActive && (
+                      <div className="mt-5 pt-5 border-t border-neutral-100 animate-fade-in space-y-3.5">
+                        <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider select-none">
+                          Agent Pipeline Sequence
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                          {/* Node 1 */}
+                          <div className="flex-1 bg-neutral-50 border border-neutral-200/80 rounded-xl p-3 text-left">
+                            <div className="text-[9px] font-bold text-indigo-600 uppercase tracking-wider mb-1">1. Input Agent</div>
+                            <div className="text-xs font-bold text-neutral-800 truncate">{study.pipeline[0].name}</div>
+                            <div className="text-[10px] text-neutral-500 leading-tight mt-0.5">{study.pipeline[0].desc}</div>
+                          </div>
+                          
+                          {/* Connect Arrow 1 */}
+                          <div className="relative w-full sm:w-10 h-2 flex items-center justify-center">
+                            <div className="w-0.5 sm:w-full h-full sm:h-0.5 bg-neutral-200 rounded-full relative overflow-hidden">
+                              <div className="absolute top-0 bottom-0 left-0 bg-indigo-500 w-1/3 rounded-full animate-pipeline-flow"></div>
+                            </div>
+                            <ChevronRight className="w-3 h-3 text-indigo-400 absolute right-0 top-1/2 -translate-y-1/2 hidden sm:block" />
+                          </div>
+
+                          {/* Node 2 */}
+                          <div className="flex-1 bg-neutral-50 border border-neutral-200/80 rounded-xl p-3 text-left">
+                            <div className="text-[9px] font-bold text-indigo-600 uppercase tracking-wider mb-1">2. Synthesis Agent</div>
+                            <div className="text-xs font-bold text-neutral-800 truncate">{study.pipeline[1].name}</div>
+                            <div className="text-[10px] text-neutral-500 leading-tight mt-0.5">{study.pipeline[1].desc}</div>
+                          </div>
+
+                          {/* Connect Arrow 2 */}
+                          <div className="relative w-full sm:w-10 h-2 flex items-center justify-center">
+                            <div className="w-0.5 sm:w-full h-full sm:h-0.5 bg-neutral-200 rounded-full relative overflow-hidden">
+                              <div className="absolute top-0 bottom-0 left-0 bg-indigo-500 w-1/3 rounded-full animate-pipeline-flow"></div>
+                            </div>
+                            <ChevronRight className="w-3 h-3 text-indigo-400 absolute right-0 top-1/2 -translate-y-1/2 hidden sm:block" />
+                          </div>
+
+                          {/* Node 3 */}
+                          <div className="flex-1 bg-emerald-50/20 border border-emerald-200 rounded-xl p-3 text-left">
+                            <div className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider mb-1">3. Live API Endpoint</div>
+                            <div className="text-xs font-bold text-emerald-800 truncate">{study.pipeline[2].name}</div>
+                            <div className="text-[10px] text-neutral-500 leading-tight mt-0.5">{study.pipeline[2].desc}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* SECTION 4: FOOTER */}
       <footer className="w-full bg-[#F5F2EC] py-16 px-6 lg:px-16 border-t border-[#E8E4DC] flex-shrink-0 animate-fade-in font-sans text-xs text-neutral-500">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
@@ -1167,9 +1680,6 @@ export default function LandingPage({ onLogin }: LandingPageProps) {
                       <h4 className="text-sm font-semibold text-[var(--text-primary)]">
                         {template.title}
                       </h4>
-                      <span className="text-[9px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 uppercase">
-                        {template.taskType}
-                      </span>
                     </div>
                     <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                       {template.description}

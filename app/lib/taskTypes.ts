@@ -45,6 +45,8 @@ export interface Task {
   data: TaskDataEntry[];
   /** Error message if status is "error" */
   errorMessage?: string;
+  /** Auto-assigned or manual category grouping (e.g. "finance", "security", "news") */
+  category?: string;
 }
 
 /* ========================================

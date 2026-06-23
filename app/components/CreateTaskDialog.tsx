@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Dialog, { DialogButton } from "./Dialog";
 import { useTaskStore } from "./TaskStore";
 import { buildTaskFromCommand } from "../lib/taskParser";
@@ -31,44 +31,32 @@ const SCHEDULE_PRESETS = [
   { label: "Weekly", value: "weekly" },
 ];
 
-const TASK_TYPE_OPTIONS: { value: Task["type"]; label: string; desc: string }[] = [
-  { value: "track", label: "Track", desc: "Monitor changes over time" },
-  { value: "crawl", label: "Crawl", desc: "Scrape web content" },
-  { value: "monitor", label: "Monitor", desc: "Watch for events" },
-  { value: "custom", label: "Custom", desc: "Custom automation" },
-];
+
 
 export default function CreateTaskDialog({ isOpen, onClose }: CreateTaskDialogProps) {
-  const { triggerCommand, openSidebar, setView } = useTaskStore();
+  const { triggerCommand, openSidebar, setView, createTaskPrefills } = useTaskStore();
   const [mode, setMode] = useState<"nlp" | "form">("nlp");
   const [nlpInput, setNlpInput] = useState("");
   const [title, setTitle] = useState("");
   const [target, setTarget] = useState("");
-  const [taskType, setTaskType] = useState<Task["type"]>("track");
   const [schedule, setSchedule] = useState("daily");
   const [customSchedule, setCustomSchedule] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTitle(createTaskPrefills?.title || "");
+      setNlpInput(createTaskPrefills?.prompt || "");
+    }
+  }, [isOpen, createTaskPrefills]);
   const [createdTask, setCreatedTask] = useState<Task | null>(null);
 
-  const getTaskTypeIcon = (type: Task["type"]) => {
-    switch (type) {
-      case "track":
-        return <LineChart className="w-4 h-4" strokeWidth={1.5} />;
-      case "crawl":
-        return <Globe className="w-4 h-4" strokeWidth={1.5} />;
-      case "monitor":
-        return <Activity className="w-4 h-4" strokeWidth={1.5} />;
-      case "custom":
-      default:
-        return <Settings className="w-4 h-4" strokeWidth={1.5} />;
-    }
-  };
+
 
   const reset = () => {
     setNlpInput("");
     setTitle("");
     setTarget("");
-    setTaskType("track");
     setSchedule("daily");
     setCustomSchedule("");
     setShowSuccess(false);
@@ -89,18 +77,11 @@ export default function CreateTaskDialog({ isOpen, onClose }: CreateTaskDialogPr
   };
 
   const handleFormCreate = () => {
-    if (taskType === "crawl" && !target.trim() && !title.trim()) return;
-    if (taskType !== "crawl" && !title.trim()) return;
+    if (!title.trim()) return;
     
     const scheduleStr = customSchedule || schedule;
-    let prompt = "";
-    
-    if (taskType === "crawl") {
-      prompt = `crawl ${target.trim() || title.trim()} ${scheduleStr}`;
-    } else {
-      const targetPart = target.trim() ? ` ${target.trim()}` : "";
-      prompt = `${taskType} ${title.trim()}${targetPart} ${scheduleStr}`;
-    }
+    const targetPart = target.trim() ? ` ${target.trim()}` : "";
+    const prompt = `track ${title.trim()}${targetPart} ${scheduleStr}`;
     
     triggerCommand(prompt);
     setView("dashboard");
@@ -123,7 +104,7 @@ export default function CreateTaskDialog({ isOpen, onClose }: CreateTaskDialogPr
           >
             <div className="flex items-center gap-3 mb-3">
               <span className="text-[var(--accent)]">
-                {getTaskTypeIcon(createdTask.type)}
+                <Activity className="w-4 h-4" strokeWidth={1.5} />
               </span>
               <div>
                 <p className="text-sm font-semibold text-[var(--text-primary)]">
@@ -253,41 +234,7 @@ export default function CreateTaskDialog({ isOpen, onClose }: CreateTaskDialogPr
         ) : (
           /* ---- Form Mode ---- */
           <div className="space-y-4">
-            {/* Task Type */}
-            <div>
-              <label
-                className="text-xs font-bold uppercase tracking-wider block mb-2 text-[var(--text-tertiary)]"
-              >
-                Task Type
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {TASK_TYPE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setTaskType(opt.value)}
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl text-center transition-all duration-150 cursor-pointer"
-                    style={{
-                      backgroundColor:
-                        taskType === opt.value
-                          ? "var(--accent-subtle)"
-                          : "var(--bg-surface)",
-                      border: `1.5px solid ${
-                        taskType === opt.value
-                          ? "var(--accent)"
-                          : "var(--border-subtle)"
-                      }`,
-                      color:
-                        taskType === opt.value
-                          ? "var(--accent)"
-                          : "var(--text-secondary)",
-                    }}
-                  >
-                    {getTaskTypeIcon(opt.value)}
-                    <span className="text-[11px] font-semibold">{opt.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+
 
             {/* Title */}
             <FormField label="Task Name" required>

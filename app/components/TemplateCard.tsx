@@ -9,35 +9,17 @@ interface TemplateCardProps {
 }
 
 export default function TemplateCard({ template, onDeploy }: TemplateCardProps) {
-  const getTypeBadge = (type: string) => {
-    switch (type) {
-      case "track":
-        return { label: "Track Metrics", className: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20" };
-      case "crawl":
-        return { label: "Web Scrape", className: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20" };
-      case "monitor":
-        return { label: "Continuous Alert", className: "bg-amber-500/10 text-amber-500 border-amber-500/20" };
-      default:
-        return { label: "Custom Intelligence", className: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20" };
-    }
-  };
-
-  const badge = getTypeBadge(template.taskType);
-
   return (
     <div className="flex flex-col h-full bg-[var(--bg-surface)] border border-[var(--border-color)] hover:border-[var(--accent)] hover:shadow-md hover:-translate-y-0.5 rounded-xl p-5 transition-all duration-200 group">
       {/* Popular badge */}
-      <div className="flex justify-between items-start gap-2 mb-3">
-        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${badge.className}`}>
-          {badge.label}
-        </span>
-        {template.isPopular && (
+      {template.isPopular && (
+        <div className="flex justify-start items-start mb-3">
           <span className="flex items-center gap-1 text-[10px] font-bold text-[var(--accent)] bg-[var(--accent-subtle)] px-2 py-0.5 rounded-full border border-[var(--accent)]/10">
             <Award className="w-3 h-3" strokeWidth={2} />
             POPULAR
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Info */}
       <div className="flex-1">

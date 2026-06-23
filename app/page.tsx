@@ -8,6 +8,9 @@ import ExploreView from "./components/ExploreView";
 import DashboardView from "./components/DashboardView";
 import AgentDetailView from "./components/AgentDetailView";
 import TemplateDeployDialog from "./components/TemplateDeployDialog";
+import OnboardingFlow from "./components/OnboardingFlow";
+import SettingsView from "./components/SettingsView";
+import CreateTaskDialog from "./components/CreateTaskDialog";
 import type { Message } from "./components/MessageBubble";
 import { useTaskStore } from "./components/TaskStore";
 import type { NLPCommandType } from "./lib/taskTypes";
@@ -98,7 +101,10 @@ export default function Home() {
     syncTasks,
     registerTriggerCommand,
     addTask,
-    triggerCommand
+    triggerCommand,
+    hasCompletedOnboarding,
+    isCreateTaskOpen,
+    setIsCreateTaskOpen,
   } = useTaskStore();
 
   // Load conversation messages when switching conversations
@@ -259,7 +265,7 @@ export default function Home() {
       let receivedDone = false;
       let isTask = false;
       let taskAction = "";
-      let assistantImages: string[] = [];
+      const assistantImages: string[] = [];
 
       const handlers = {
         onStatus: (label: string) => {
@@ -352,7 +358,9 @@ export default function Home() {
                 : m
             );
             finalMessagesList = next;
-            setConversationMessages(convId, next);
+            setTimeout(() => {
+              setConversationMessages(convId, next);
+            }, 0);
             return next;
           });
 
@@ -370,7 +378,9 @@ export default function Home() {
                 content: errorText,
               });
             finalMessagesList = next;
-            setConversationMessages(convId, next);
+            setTimeout(() => {
+              setConversationMessages(convId, next);
+            }, 0);
             return next;
           });
         },
@@ -415,7 +425,9 @@ export default function Home() {
             return m;
           });
           finalMessagesList = next;
-          setConversationMessages(convId, next);
+          setTimeout(() => {
+            setConversationMessages(convId, next);
+          }, 0);
           return next;
         });
         syncTasks();
@@ -434,7 +446,9 @@ export default function Home() {
             return m;
           });
           finalMessagesList = next;
-          setConversationMessages(convId, next);
+          setTimeout(() => {
+            setConversationMessages(convId, next);
+          }, 0);
           return next;
         });
       } else {
@@ -447,7 +461,9 @@ export default function Home() {
               content: "Bossint couldn't complete this request. Please try again.",
             });
           finalMessagesList = next;
-          setConversationMessages(convId, next);
+          setTimeout(() => {
+            setConversationMessages(convId, next);
+          }, 0);
           return next;
         });
       }
@@ -455,11 +471,6 @@ export default function Home() {
       setIsStreaming(false);
       abortControllerRef.current = null;
       thinkingStartRef.current = null;
-      
-      // Final synchronization of conversation state
-      if (finalMessagesList.length > 0) {
-        setConversationMessages(convId, finalMessagesList);
-      }
     }
   }, [input, isStreaming, activeConversationId, conversations, createConversation, setConversationMessages, setView, setActiveConversationId, syncTasks]);
 
@@ -479,7 +490,11 @@ export default function Home() {
       case "welcome":
         return (
           <div className="flex-1 overflow-y-auto">
-            <WelcomeView onPromptFill={fillInput} onDeployClick={handleDeployClick} />
+            <WelcomeView
+              onPromptFill={fillInput}
+              onPromptSubmit={sendMessage}
+              onDeployClick={handleDeployClick}
+            />
           </div>
         );
       case "explore":
@@ -500,24 +515,55 @@ export default function Home() {
             <AgentDetailView />
           </div>
         );
+      case "settings":
+        return (
+          <div className="flex-1 overflow-y-auto">
+            <SettingsView />
+          </div>
+        );
       case "chat":
       default:
         return (
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <div className="flex-1 overflow-y-auto">
-              {messages.length === 0 ? (
-                <WelcomeView onPromptFill={fillInput} onDeployClick={handleDeployClick} />
-              ) : (
-                <MessageList messages={messages} />
-              )}
-            </div>
-            <ChatInput
-              value={input}
-              onChange={setInput}
-              onSend={() => sendMessage()}
-              onStop={stopStreaming}
-              isStreaming={isStreaming}
-            />
+            {messages.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-start pt-20 pb-6 px-6 max-w-3xl mx-auto w-full space-y-10 animate-fade-in">
+                <div className="text-center space-y-4">
+                  <div className="w-20 h-20 rounded-3xl bg-[var(--bg-surface)] border border-[var(--border-color)] shadow-md flex items-center justify-center mx-auto mb-4 select-none">
+                    <img src="/bossint-b.png" alt="Bossint" className="w-10 h-10" />
+                  </div>
+                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--text-primary)] font-sans">
+                    Autopilot Research
+                  </h2>
+                  <p className="text-base sm:text-lg text-[var(--text-secondary)] font-medium max-w-none mx-auto leading-relaxed">
+                    Ask Bossint to crawl, track, or monitor anything. Check results in real-time.
+                  </p>
+                </div>
+                <div className="w-full">
+                  <ChatInput
+                    value={input}
+                    onChange={setInput}
+                    onSend={() => sendMessage()}
+                    onStop={stopStreaming}
+                    isStreaming={isStreaming}
+                    isCentered={true}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="flex-1 overflow-y-auto">
+                  <MessageList messages={messages} />
+                </div>
+                <ChatInput
+                  value={input}
+                  onChange={setInput}
+                  onSend={() => sendMessage()}
+                  onStop={stopStreaming}
+                  isStreaming={isStreaming}
+                  isCentered={false}
+                />
+              </div>
+            )}
           </div>
         );
     }
@@ -533,6 +579,15 @@ export default function Home() {
         onClose={() => setIsDeployOpen(false)}
         template={deployTemplate}
       />
+
+      {/* Global Task Creation Dialog */}
+      <CreateTaskDialog
+        isOpen={isCreateTaskOpen}
+        onClose={() => setIsCreateTaskOpen(false)}
+      />
+
+      {/* Onboarding Flow Overlay */}
+      {!hasCompletedOnboarding && <OnboardingFlow />}
     </div>
   );
 }

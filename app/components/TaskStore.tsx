@@ -11,6 +11,7 @@ import {
 import type { Task, TaskStatus } from "../lib/taskTypes";
 import { parseUpstreamTaskList } from "../lib/taskParser";
 import type { Message } from "./MessageBubble";
+import { TEMPLATES } from "../lib/templateData";
 
 const STORAGE_KEY = "bossint-tasks";
 
@@ -19,6 +20,61 @@ export interface Conversation {
   title: string;
   timestamp: number;
   messages: Message[];
+}
+
+export interface Notification {
+  id: string;
+  agentId?: string;
+  agentName?: string;
+  type: "info" | "warning" | "error" | "milestone" | "system";
+  title: string;
+  message: string;
+  timestamp: number;
+  read: boolean;
+}
+
+export function getCategoryForTask(title: string, prompt: string): string {
+  const cleanTitle = title.trim().toLowerCase();
+  const cleanPrompt = prompt.trim().toLowerCase();
+  
+  // Try to find a template with exact title or prompt match
+  const found = TEMPLATES.find(
+    (t) => t.title.toLowerCase() === cleanTitle || t.prompt.toLowerCase() === cleanPrompt
+  );
+  if (found) return found.categoryId;
+
+  // Keyword check
+  if (/price|bitcoin|crypto|defi|finance|earnings|stock|whale|altcoin|market/i.test(cleanTitle) || /price|bitcoin|crypto|defi|finance|earnings|stock|whale|altcoin/i.test(cleanPrompt)) {
+    return "finance";
+  }
+  if (/vulnerabilit|cve|zero-day|exploit|cyber|security|squat|threat|leak|ransomware/i.test(cleanTitle) || /vulnerabilit|cve|zero-day|exploit|cyber|security|squat|threat/i.test(cleanPrompt)) {
+    return "cybersecurity";
+  }
+  if (/competitor|pricing|opening|job|hiring|product update|positioning|sales|lead|deal|customer|tender/i.test(cleanTitle) || /competitor|pricing|opening|job|hiring|product update|positioning/i.test(cleanPrompt)) {
+    return "competitive";
+  }
+  if (/news|headline|story|stories|reuters|digest|breaking|media|article/i.test(cleanTitle) || /news|headline|story|stories|reuters|digest|breaking|media/i.test(cleanPrompt)) {
+    return "news";
+  }
+  if (/brand|reputation|sentiment|pr|mention|tweet|social|feedback/i.test(cleanTitle) || /brand|reputation|sentiment|pr|mention|tweet|social/i.test(cleanPrompt)) {
+    return "brand";
+  }
+  if (/academic|research|paper|scientific|study|studies|data|analytics/i.test(cleanTitle) || /academic|research|paper|scientific|study|studies/i.test(cleanPrompt)) {
+    return "research";
+  }
+  if (/law|legal|court|compliance|policy|legislat|regulation/i.test(cleanTitle) || /law|legal|court|compliance|policy|legislat/i.test(cleanPrompt)) {
+    return "legal";
+  }
+  if (/geopolitic|osint|conflict|sanction|global|country/i.test(cleanTitle) || /geopolitic|osint|conflict|sanction/i.test(cleanPrompt)) {
+    return "geopolitics";
+  }
+  if (/esg|sustainability|greenhouse|carbon|environmental|emission/i.test(cleanTitle) || /esg|sustainability|greenhouse|carbon|environmental/i.test(cleanPrompt)) {
+    return "esg";
+  }
+  if (/buy|shop|ecommerce|retail|store|product price/i.test(cleanTitle) || /buy|shop|ecommerce|retail|store/i.test(cleanPrompt)) {
+    return "ecommerce";
+  }
+  return "research";
 }
 
 interface TaskStoreContextValue {
@@ -35,6 +91,8 @@ interface TaskStoreContextValue {
   clearTaskData: (taskId: string) => void;
   /** Update a task's schedule */
   updateSchedule: (taskId: string, scheduleLabel: string) => void;
+  /** Update task details (title, prompt, category, etc.) */
+  updateTaskDetails: (taskId: string, details: Partial<Task>) => void;
   /** Simulate running a task (adds a mock data entry) */
   runTask: (taskId: string) => void;
   /** Whether the sidebar is open */
@@ -53,8 +111,8 @@ interface TaskStoreContextValue {
   registerTriggerCommand: (callback: (cmd: string) => void) => void;
 
   // New views and conversation management
-  currentView: "welcome" | "chat" | "explore" | "dashboard" | "agent-detail";
-  setView: (view: "welcome" | "chat" | "explore" | "dashboard" | "agent-detail") => void;
+  currentView: "welcome" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings";
+  setView: (view: "welcome" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings") => void;
   activeConversationId: string | null;
   setActiveConversationId: (id: string | null) => void;
   conversations: Conversation[];
@@ -65,6 +123,19 @@ interface TaskStoreContextValue {
   updateConversationTitle: (convId: string, title: string) => void;
   selectedAgentId: string | null;
   setSelectedAgentId: (id: string | null) => void;
+
+  // Notifications and onboarding
+  notifications: Notification[];
+  addNotification: (notification: Omit<Notification, "id" | "timestamp" | "read">) => void;
+  markNotificationAsRead: (id: string) => void;
+  markAllNotificationsAsRead: () => void;
+  clearNotifications: () => void;
+  hasCompletedOnboarding: boolean;
+  completeOnboarding: () => void;
+  isCreateTaskOpen: boolean;
+  setIsCreateTaskOpen: (val: boolean) => void;
+  createTaskPrefills: { title: string; prompt: string } | null;
+  setCreateTaskPrefills: (val: { title: string; prompt: string } | null) => void;
 }
 
 const TaskStoreContext = createContext<TaskStoreContextValue>({
@@ -75,6 +146,7 @@ const TaskStoreContext = createContext<TaskStoreContextValue>({
   deleteTask: () => {},
   clearTaskData: () => {},
   updateSchedule: () => {},
+  updateTaskDetails: () => {},
   runTask: () => {},
   isSidebarOpen: false,
   toggleSidebar: () => {},
@@ -95,6 +167,18 @@ const TaskStoreContext = createContext<TaskStoreContextValue>({
   updateConversationTitle: () => {},
   selectedAgentId: null,
   setSelectedAgentId: () => {},
+  
+  notifications: [],
+  addNotification: () => {},
+  markNotificationAsRead: () => {},
+  markAllNotificationsAsRead: () => {},
+  clearNotifications: () => {},
+  hasCompletedOnboarding: true,
+  completeOnboarding: () => {},
+  isCreateTaskOpen: false,
+  setIsCreateTaskOpen: () => {},
+  createTaskPrefills: null,
+  setCreateTaskPrefills: () => {},
 });
 
 export function useTaskStore() {
@@ -106,7 +190,11 @@ function loadTasks(): Task[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored) as Task[];
+      return parsed.map((t) => ({
+        ...t,
+        category: t.category || getCategoryForTask(t.title, t.prompt),
+      }));
     }
   } catch {
     // Ignore parse errors
@@ -130,10 +218,16 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   const [onTriggerCommand, setOnTriggerCommand] = useState<((cmd: string) => void) | null>(null);
 
   // New views and conversations state
-  const [currentView, setView] = useState<"welcome" | "chat" | "explore" | "dashboard" | "agent-detail">("welcome");
+  const [currentView, setView] = useState<"welcome" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings">("welcome");
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+
+  // Notifications and onboarding state
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean>(true);
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState<boolean>(false);
+  const [createTaskPrefills, setCreateTaskPrefills] = useState<{ title: string; prompt: string } | null>(null);
 
   const registerTriggerCommand = useCallback((callback: (cmd: string) => void) => {
     setOnTriggerCommand(() => callback);
@@ -176,12 +270,44 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
               nextRunAt: fetched.status === "active" ? (local?.nextRunAt || (now + (fetched.schedule?.intervalMs || 24 * 60 * 60 * 1000))) : undefined,
               runCount: local?.runCount || 0,
               data: local?.data || [],
+              category: local?.category || getCategoryForTask(fetched.title || `Task ${fetched.id}`, local?.prompt || fetched.title || `Track ${fetched.id}`),
             };
           });
         });
       }
     } catch (err) {
       console.error("Error syncing tasks:", err);
+    }
+  }, []);
+
+  const addNotification = useCallback((notif: Omit<Notification, "id" | "timestamp" | "read">) => {
+    const newNotif: Notification = {
+      ...notif,
+      id: `notif-${crypto.randomUUID()}`,
+      timestamp: Date.now(),
+      read: false,
+    };
+    setNotifications((prev) => [newNotif, ...prev]);
+  }, []);
+
+  const markNotificationAsRead = useCallback((id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+  }, []);
+
+  const markAllNotificationsAsRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }, []);
+
+  const clearNotifications = useCallback(() => {
+    setNotifications([]);
+  }, []);
+
+  const completeOnboarding = useCallback(() => {
+    setHasCompletedOnboarding(true);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("bossint-onboarding-completed", "true");
     }
   }, []);
 
@@ -203,12 +329,68 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         const storedView = localStorage.getItem("bossint-current-view");
         if (storedView) {
           const view = storedView as any;
-          if (["welcome", "chat", "explore", "dashboard", "agent-detail"].includes(view)) {
+          if (["welcome", "chat", "explore", "dashboard", "agent-detail", "settings"].includes(view)) {
             setView(view);
           }
         }
+
+        // Load onboarding state
+        const storedOnboarding = localStorage.getItem("bossint-onboarding-completed");
+        if (storedOnboarding) {
+          setHasCompletedOnboarding(storedOnboarding === "true");
+        } else {
+          const localT = loadTasks();
+          setHasCompletedOnboarding(localT.length > 0);
+        }
+
+        // Load notifications
+        const storedNotifs = localStorage.getItem("bossint-notifications");
+        if (storedNotifs) {
+          setNotifications(JSON.parse(storedNotifs));
+        } else {
+          // Seed initial mock notifications
+          const now = Date.now();
+          const initialNotifs: Notification[] = [
+            {
+              id: "notif-welcome",
+              type: "system",
+              title: "Welcome to Bossint Command Center",
+              message: "Get started by exploring agent blueprints or creating a custom agent in chat. Know everything. Before everyone.",
+              timestamp: now - 3600 * 1000 * 2, // 2 hours ago
+              read: false,
+            },
+            {
+              id: "notif-seed-1",
+              type: "info",
+              title: "Bitcoin Price Tracker • Scan Complete",
+              message: "BTC crossed $68,420 (▲ +2.3% since last scan). No anomalies detected.",
+              timestamp: now - 60 * 1000 * 42, // 42 min ago
+              read: false,
+              agentId: "agent-btc",
+            },
+            {
+              id: "notif-seed-2",
+              type: "warning",
+              title: "Zero-Day Exploit Watch • Threat Alert",
+              message: "CVE-2026-4521 flagged as HIGH severity in Apache Struts vulnerability feed.",
+              timestamp: now - 3600 * 1000 * 1.2, // 1.2 hours ago
+              read: false,
+              agentId: "agent-cve",
+            },
+            {
+              id: "notif-seed-3",
+              type: "info",
+              title: "Competitor Monitor • Change Detected",
+              message: "competitor.com pricing plans page altered. 2 changes detected.",
+              timestamp: now - 3600 * 1000 * 6, // 6 hours ago
+              read: true,
+              agentId: "agent-competitor",
+            }
+          ];
+          setNotifications(initialNotifs);
+        }
       } catch (err) {
-        console.error("Error loading conversations:", err);
+        console.error("Error loading conversations/settings:", err);
       }
     }
     
@@ -248,8 +430,19 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [currentView, mounted]);
 
+  // Persist notifications
+  useEffect(() => {
+    if (mounted && typeof window !== "undefined") {
+      localStorage.setItem("bossint-notifications", JSON.stringify(notifications));
+    }
+  }, [notifications, mounted]);
+
   const addTask = useCallback((task: Task) => {
-    setTasks((prev) => [task, ...prev]);
+    const taskWithCategory = {
+      ...task,
+      category: task.category || getCategoryForTask(task.title, task.prompt),
+    };
+    setTasks((prev) => [taskWithCategory, ...prev]);
   }, []);
 
   const setTaskStatus = useCallback((taskId: string, status: TaskStatus) => {
@@ -266,7 +459,6 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
 
   const clearTaskData = useCallback((taskId: string) => {
     triggerCommand(`clear data for task ${taskId}`);
-    // Clear locally too
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, data: [], runCount: 0 } : t))
     );
@@ -276,9 +468,20 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     triggerCommand(`change schedule of task ${taskId} to ${scheduleLabel}`);
   }, [triggerCommand]);
 
+  const updateTaskDetails = useCallback((taskId: string, details: Partial<Task>) => {
+    if (details.schedule?.label) {
+      triggerCommand(`change schedule of task ${taskId} to ${details.schedule.label}`);
+    }
+    if (details.title) {
+      triggerCommand(`rename task ${taskId} to "${details.title}"`);
+    }
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, ...details } : t))
+    );
+  }, [triggerCommand]);
+
   const runTask = useCallback((taskId: string) => {
     triggerCommand(`run task ${taskId} now`);
-    // Local simulation feedback
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id !== taskId) return t;
@@ -288,6 +491,15 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
           timestamp: now,
           summary: `Task run triggered via NLP Command • ${new Date(now).toLocaleTimeString()}`,
         };
+
+        addNotification({
+          agentId: taskId,
+          agentName: t.title,
+          type: "info",
+          title: `${t.title} • Executed`,
+          message: `Intelligence scan completed at ${new Date(now).toLocaleTimeString()}. 0 issues detected.`,
+        });
+
         return {
           ...t,
           status: "running" as TaskStatus,
@@ -297,7 +509,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         };
       })
     );
-  }, [triggerCommand]);
+  }, [triggerCommand, addNotification]);
 
   const processCommand = useCallback(
     (input: string): string => {
@@ -379,6 +591,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         deleteTask,
         clearTaskData,
         updateSchedule,
+        updateTaskDetails,
         runTask,
         isSidebarOpen,
         toggleSidebar,
@@ -399,6 +612,17 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         updateConversationTitle,
         selectedAgentId,
         setSelectedAgentId,
+        notifications,
+        addNotification,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        clearNotifications,
+        hasCompletedOnboarding,
+        completeOnboarding,
+        isCreateTaskOpen,
+        setIsCreateTaskOpen,
+        createTaskPrefills,
+        setCreateTaskPrefills,
       }}
     >
       {children}
