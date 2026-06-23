@@ -4,11 +4,24 @@ import { useState, useEffect } from "react";
 import LeftSidebar from "./LeftSidebar";
 import TopBar from "./TopBar";
 import LandingPage from "./LandingPage";
+import TemplateDeployDialog from "./TemplateDeployDialog";
+import CreateTaskDialog from "./CreateTaskDialog";
+import OnboardingFlow from "./OnboardingFlow";
+import { useTaskStore } from "./TaskStore";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  const {
+    isDeployOpen,
+    setIsDeployOpen,
+    deployTemplate,
+    isCreateTaskOpen,
+    setIsCreateTaskOpen,
+    hasCompletedOnboarding,
+  } = useTaskStore();
 
   useEffect(() => {
     // Check if the user is logged in
@@ -86,6 +99,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Global Template Deploy Dialog */}
+      <TemplateDeployDialog
+        isOpen={isDeployOpen}
+        onClose={() => setIsDeployOpen(false)}
+        template={deployTemplate}
+      />
+
+      {/* Global Task Creation Dialog */}
+      <CreateTaskDialog
+        isOpen={isCreateTaskOpen}
+        onClose={() => setIsCreateTaskOpen(false)}
+      />
+
+      {/* Onboarding Flow Overlay */}
+      {!hasCompletedOnboarding && <OnboardingFlow />}
     </div>
   );
 }

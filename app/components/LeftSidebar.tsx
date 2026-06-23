@@ -2,6 +2,7 @@
 
 import { useTheme } from "./ThemeProvider";
 import { useTaskStore } from "./TaskStore";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Compass,
@@ -36,31 +37,28 @@ export default function LeftSidebar({
   const { theme, toggleTheme } = useTheme();
   const {
     currentView,
-    setView,
     conversations,
     activeConversationId,
-    setActiveConversationId,
-    createConversation,
     deleteConversation,
   } = useTaskStore();
+  const router = useRouter();
 
   const handleNewResearch = () => {
-    setActiveConversationId(null);
-    setView("chat");
+    router.push("/chat");
     setIsMobileOpen(false);
   };
 
 
   const selectConversation = (id: string) => {
-    setActiveConversationId(id);
-    setView("chat");
+    router.push(`/chat/${id}`);
     setIsMobileOpen(false);
   };
 
   const handleNavClick = (view: "welcome" | "explore" | "dashboard" | "settings") => {
-    setView(view);
-    if (view !== "welcome" && view !== "settings") {
-      setActiveConversationId(null);
+    if (view === "welcome") {
+      router.push("/");
+    } else {
+      router.push(`/${view}`);
     }
     setIsMobileOpen(false);
   };

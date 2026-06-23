@@ -6,12 +6,15 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import type { Task, TaskStatus } from "../lib/taskTypes";
-import { parseUpstreamTaskList } from "../lib/taskParser";
+import { parseUpstreamTaskList, generateTaskId } from "../lib/taskParser";
 import type { Message } from "./MessageBubble";
-import { TEMPLATES } from "../lib/templateData";
+import { TEMPLATES, type AgentTemplate } from "../lib/templateData";
+import { useRouter, usePathname } from "next/navigation";
+import type { NLPCommandType } from "../lib/taskTypes";
 
 const STORAGE_KEY = "bossint-tasks";
 
@@ -136,6 +139,21 @@ interface TaskStoreContextValue {
   setIsCreateTaskOpen: (val: boolean) => void;
   createTaskPrefills: { title: string; prompt: string } | null;
   setCreateTaskPrefills: (val: { title: string; prompt: string } | null) => void;
+
+  // Template deploy controls
+  deployTemplate: AgentTemplate | null;
+  setDeployTemplate: (template: AgentTemplate | null) => void;
+  isDeployOpen: boolean;
+  setIsDeployOpen: (open: boolean) => void;
+
+  // Global Chat state and actions
+  messages: Message[];
+  setMessages: (messages: Message[]) => void;
+  input: string;
+  setInput: (input: string) => void;
+  isStreaming: boolean;
+  sendMessage: (customText?: string, targetConvId?: string | null) => Promise<void>;
+  stopStreaming: () => void;
 }
 
 const TaskStoreContext = createContext<TaskStoreContextValue>({
@@ -179,6 +197,18 @@ const TaskStoreContext = createContext<TaskStoreContextValue>({
   setIsCreateTaskOpen: () => {},
   createTaskPrefills: null,
   setCreateTaskPrefills: () => {},
+
+  deployTemplate: null,
+  setDeployTemplate: () => {},
+  isDeployOpen: false,
+  setIsDeployOpen: () => {},
+  messages: [],
+  setMessages: () => {},
+  input: "",
+  setInput: () => {},
+  isStreaming: false,
+  sendMessage: async () => {},
+  stopStreaming: () => {},
 });
 
 export function useTaskStore() {
@@ -211,17 +241,81 @@ function saveTasks(tasks: Task[]) {
   }
 }
 
+/** Parse a raw SSE buffer chunk and dispatch events */
+function parseSSEEvents(
+  raw: string,
+  handlers: {
+    onStatus: (label: string) => void;
+    onReasoning: (text: string) => void;
+    onAnswer: (text: string) => void;
+    onDone: (answer: string, sources: Array<{ url: string; title?: string }>, images?: string[]) => void;
+    onError: (text: string) => void;
+    onIntent?: (action: string, message: string) => void;
+    onImageUrl?: (url: string) => void;
+  }
+) {
+  const lines = raw.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) continue;
+
+    const jsonStr = trimmed.slice(5).trim();
+    if (!jsonStr || jsonStr === "[DONE]") continue;
+
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(jsonStr);
+    } catch {
+      continue;
+    }
+
+    const eventType = data.type as string;
+
+    switch (eventType) {
+      case "status":
+        handlers.onStatus((data.label as string) || "");
+        break;
+      case "reasoning":
+        handlers.onReasoning((data.text as string) || "");
+        break;
+      case "answer":
+        handlers.onAnswer((data.text as string) || "");
+        break;
+      case "done":
+        handlers.onDone(
+          (data.answer as string) || (data.text as string) || "",
+          (data.sources as Array<{ url: string; title?: string }>) || [],
+          (data.images as string[]) || []
+        );
+        break;
+      case "intent":
+        handlers.onIntent?.((data.action as string) || "", (data.message as string) || "");
+        break;
+      case "image_url":
+        handlers.onImageUrl?.((data.url as string) || "");
+        break;
+      case "error":
+        handlers.onError(
+          (data.text as string) || "Something went wrong. Please try again."
+        );
+        break;
+    }
+  }
+}
+
 export function TaskStoreProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [onTriggerCommand, setOnTriggerCommand] = useState<((cmd: string) => void) | null>(null);
 
   // New views and conversations state
-  const [currentView, setView] = useState<"welcome" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings">("welcome");
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [currentView, setViewOnly] = useState<"welcome" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings">("welcome");
+  const [activeConversationId, setActiveConversationIdOnly] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [selectedAgentId, setSelectedAgentIdOnly] = useState<string | null>(null);
 
   // Notifications and onboarding state
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -229,18 +323,127 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState<boolean>(false);
   const [createTaskPrefills, setCreateTaskPrefills] = useState<{ title: string; prompt: string } | null>(null);
 
-  const registerTriggerCommand = useCallback((callback: (cmd: string) => void) => {
-    setOnTriggerCommand(() => callback);
+  // Template deploy controls
+  const [deployTemplate, setDeployTemplate] = useState<AgentTemplate | null>(null);
+  const [isDeployOpen, setIsDeployOpen] = useState(false);
+
+  // Global Chat state and actions
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const thinkingStartRef = useRef<number | null>(null);
+
+  // Keep state synchronized with pathname changes (back/forward navigation)
+  useEffect(() => {
+    if (pathname === "/") {
+      setViewOnly("welcome");
+    } else if (pathname === "/explore") {
+      setViewOnly("explore");
+    } else if (pathname === "/dashboard") {
+      setViewOnly("dashboard");
+    } else if (pathname === "/settings") {
+      setViewOnly("settings");
+    } else if (pathname.startsWith("/chat")) {
+      setViewOnly("chat");
+      const parts = pathname.split("/");
+      const id = parts[2] || null;
+      setActiveConversationIdOnly(id);
+    } else if (pathname.startsWith("/agents")) {
+      setViewOnly("agent-detail");
+      const parts = pathname.split("/");
+      const id = parts[2] || null;
+      setSelectedAgentIdOnly(id);
+    }
+  }, [pathname]);
+
+  const setView = useCallback((view: "welcome" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings") => {
+    setViewOnly(view);
+    if (view === "welcome" && pathname !== "/") router.push("/");
+    else if (view === "explore" && pathname !== "/explore") router.push("/explore");
+    else if (view === "dashboard" && pathname !== "/dashboard") router.push("/dashboard");
+    else if (view === "settings" && pathname !== "/settings") router.push("/settings");
+    else if (view === "chat" && !pathname.startsWith("/chat")) router.push("/chat");
+    else if (view === "agent-detail" && selectedAgentId && !pathname.startsWith("/agents")) router.push(`/agents/${selectedAgentId}`);
+  }, [pathname, router, selectedAgentId]);
+
+  const setActiveConversationId = useCallback((id: string | null) => {
+    setActiveConversationIdOnly(id);
+    if (id) {
+      if (pathname !== `/chat/${id}`) router.push(`/chat/${id}`);
+    } else {
+      if (pathname !== "/chat") router.push("/chat");
+    }
+  }, [pathname, router]);
+
+  const setSelectedAgentId = useCallback((id: string | null) => {
+    setSelectedAgentIdOnly(id);
+    if (id) {
+      if (pathname !== `/agents/${id}`) router.push(`/agents/${id}`);
+    }
+  }, [pathname, router]);
+
+  // Load conversation messages when switching conversations
+  useEffect(() => {
+    if (activeConversationId) {
+      const activeConv = conversations.find((c) => c.id === activeConversationId);
+      setMessages(activeConv?.messages || []);
+    } else {
+      setMessages([]);
+    }
+  }, [activeConversationId, conversations]);
+
+  const createConversation = useCallback((title?: string) => {
+    const id = crypto.randomUUID();
+    const newConv: Conversation = {
+      id,
+      title: title || "New Research",
+      timestamp: Date.now(),
+      messages: [],
+    };
+    setConversations((prev) => [newConv, ...prev]);
+    setActiveConversationId(id);
+    setView("chat");
+    return id;
+  }, [setActiveConversationId, setView]);
+
+  const deleteConversation = useCallback((id: string) => {
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (activeConversationId === id) {
+      setActiveConversationId(null);
+      setView("welcome");
+    }
+  }, [activeConversationId, setActiveConversationId, setView]);
+
+  const addMessageToConversation = useCallback((convId: string, message: Message) => {
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id !== convId) return c;
+        let newTitle = c.title;
+        if (c.title === "New Research" && message.role === "user") {
+          newTitle = message.content.length > 30 ? message.content.slice(0, 30) + "..." : message.content;
+        }
+        return {
+          ...c,
+          title: newTitle,
+          messages: [...c.messages, message],
+        };
+      })
+    );
   }, []);
 
-  const triggerCommand = useCallback((cmd: string) => {
-    if (onTriggerCommand) {
-      onTriggerCommand(cmd);
-      setIsSidebarOpen(true);
-    } else {
-      console.warn("No command trigger callback registered");
-    }
-  }, [onTriggerCommand]);
+  const setConversationMessages = useCallback((convId: string, messages: Message[]) => {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === convId ? { ...c, messages } : c))
+    );
+  }, []);
+
+  const updateConversationTitle = useCallback((convId: string, title: string) => {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === convId ? { ...c, title } : c))
+    );
+  }, []);
 
   const syncTasks = useCallback(async () => {
     try {
@@ -279,6 +482,312 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
       console.error("Error syncing tasks:", err);
     }
   }, []);
+
+  const registerTriggerCommand = useCallback((callback: (cmd: string) => void) => {
+    // No-op for backward compatibility
+  }, []);
+
+  const stopStreaming = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
+
+  const sendMessage = useCallback(async (customText?: string, targetConvId?: string | null) => {
+    const text = (customText || input).trim();
+    if (!text || isStreaming) return;
+
+    let convId = targetConvId || activeConversationId;
+    if (!convId) {
+      convId = createConversation(text.length > 35 ? text.slice(0, 35) + "..." : text);
+    }
+
+    // Add user message
+    const userMessage: Message = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: text,
+    };
+
+    const assistantId = `assistant-${Date.now()}`;
+    const assistantMessage: Message = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      reasoning: "",
+      statusLabel: "",
+      sources: [],
+      images: [],
+      isStreaming: true,
+    };
+
+    // Retrieve previous messages for the active context
+    const activeConv = conversations.find((c) => c.id === convId);
+    const existingMessages = activeConv?.messages || [];
+    const updatedInitialMessages = [...existingMessages, userMessage, assistantMessage];
+    
+    // Update both local state and TaskStore context
+    setMessages(updatedInitialMessages);
+    setConversationMessages(convId, updatedInitialMessages);
+    
+    // Crucial: Route to chat page for this conversation
+    setActiveConversationId(convId);
+
+    if (!customText) {
+      setInput("");
+    }
+    
+    setIsStreaming(true);
+    thinkingStartRef.current = Date.now();
+
+    // Create abort controller
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    let taskMsg = "";
+    let finalMessagesList = updatedInitialMessages;
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          session_id: convId, // Pass actual conversation ID
+          stream: true,
+          image_generation: true,
+          followup: existingMessages.length > 0,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error("Request failed");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      // Accumulators for the current assistant message
+      let answerText = "";
+      let reasoningText = "";
+      let currentStatus = "";
+      let receivedDone = false;
+      let isTask = false;
+      let taskAction = "";
+      const assistantImages: string[] = [];
+
+      const handlers = {
+        onStatus: (label: string) => {
+          currentStatus = label;
+          setMessages((prev) => {
+            const next = prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, statusLabel: currentStatus }
+                : m
+            );
+            finalMessagesList = next;
+            return next;
+          });
+        },
+        onReasoning: (chunk: string) => {
+          reasoningText += chunk;
+          setMessages((prev) => {
+            const next = prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, reasoning: reasoningText, statusLabel: currentStatus }
+                : m
+            );
+            finalMessagesList = next;
+            return next;
+          });
+        },
+        onAnswer: (chunk: string) => {
+          leftAnswerChunks:
+          answerText += chunk;
+          setMessages((prev) => {
+            const next = prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: answerText }
+                : m
+            );
+            finalMessagesList = next;
+            return next;
+          });
+        },
+        onIntent: (action: string, msg: string) => {
+          isTask = true;
+          taskAction = action;
+          taskMsg = msg;
+          setMessages((prev) => {
+            const next = prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    isTaskResponse: true,
+                    taskCommandType: action as NLPCommandType,
+                    content: answerText || msg,
+                  }
+                : m
+            );
+            finalMessagesList = next;
+            return next;
+          });
+        },
+        onImageUrl: (url: string) => {
+          assistantImages.push(url);
+          setMessages((prev) => {
+            const next = prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, images: assistantImages }
+                : m
+            );
+            finalMessagesList = next;
+            return next;
+          });
+        },
+        onDone: (answer: string, sources: Array<{ url: string; title?: string }>, images?: string[]) => {
+          receivedDone = true;
+          const finalAnswer = answer || answerText || taskMsg;
+          const thinkingDuration = thinkingStartRef.current
+            ? Math.round((Date.now() - thinkingStartRef.current) / 1000)
+            : undefined;
+
+          const mergedImages = Array.from(new Set([...assistantImages, ...(images || [])]));
+
+          setMessages((prev) => {
+            const next = prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    content: finalAnswer,
+                    sources,
+                    images: mergedImages,
+                    isStreaming: false,
+                    thinkingDuration,
+                  }
+                : m
+            );
+            finalMessagesList = next;
+            setTimeout(() => {
+              setConversationMessages(convId, next);
+            }, 0);
+            return next;
+          });
+
+          // Sync tasks list
+          syncTasks();
+        },
+        onError: (errorText: string) => {
+          receivedDone = true;
+          setMessages((prev) => {
+            const next = prev
+              .filter((m) => m.id !== assistantId)
+              .concat({
+                id: `error-${Date.now()}`,
+                role: "error" as const,
+                content: errorText,
+              });
+            finalMessagesList = next;
+            setTimeout(() => {
+              setConversationMessages(convId, next);
+            }, 0);
+            return next;
+          });
+        },
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        buffer = buffer.replace(/\r\n/g, "\n");
+
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() || "";
+
+        for (const part of parts) {
+          if (part.trim()) {
+            parseSSEEvents(part, handlers);
+          }
+        }
+      }
+
+      if (buffer.trim()) {
+        parseSSEEvents(buffer, handlers);
+      }
+
+      if (!receivedDone) {
+        const thinkingDuration = thinkingStartRef.current
+          ? Math.round((Date.now() - thinkingStartRef.current) / 1000)
+          : undefined;
+        
+        setMessages((prev) => {
+          const next = prev.map((m) => {
+            if (m.id === assistantId && m.isStreaming) {
+              return {
+                ...m,
+                isStreaming: false,
+                thinkingDuration,
+                content: m.content || taskMsg || "(Completed)",
+              };
+            }
+            return m;
+          });
+          finalMessagesList = next;
+          setTimeout(() => {
+            setConversationMessages(convId, next);
+          }, 0);
+          return next;
+        });
+        syncTasks();
+      }
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setMessages((prev) => {
+          const next = prev.map((m) => {
+            if (m.id === assistantId && m.isStreaming) {
+              return {
+                ...m,
+                isStreaming: false,
+                content: m.content || taskMsg || "(Cancelled)",
+              };
+            }
+            return m;
+          });
+          finalMessagesList = next;
+          setTimeout(() => {
+            setConversationMessages(convId, next);
+          }, 0);
+          return next;
+        });
+      } else {
+        setMessages((prev) => {
+          const next = prev
+            .filter((m) => m.id !== assistantId)
+            .concat({
+              id: `error-${Date.now()}`,
+              role: "error",
+              content: "Bossint couldn't complete this request. Please try again.",
+            });
+          finalMessagesList = next;
+          setTimeout(() => {
+            setConversationMessages(convId, next);
+          }, 0);
+          return next;
+        });
+      }
+    } finally {
+      setIsStreaming(false);
+      abortControllerRef.current = null;
+      thinkingStartRef.current = null;
+    }
+  }, [input, isStreaming, activeConversationId, conversations, createConversation, setConversationMessages, setActiveConversationId, syncTasks]);
+
+  const triggerCommand = useCallback((cmd: string) => {
+    sendMessage(cmd);
+    setIsSidebarOpen(true);
+  }, [sendMessage]);
 
   const addNotification = useCallback((notif: Omit<Notification, "id" | "timestamp" | "read">) => {
     const newNotif: Notification = {
@@ -530,57 +1039,6 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     setIsSidebarOpen(false);
   }, []);
 
-  const createConversation = useCallback((title?: string) => {
-    const id = crypto.randomUUID();
-    const newConv: Conversation = {
-      id,
-      title: title || "New Research",
-      timestamp: Date.now(),
-      messages: [],
-    };
-    setConversations((prev) => [newConv, ...prev]);
-    setActiveConversationId(id);
-    setView("chat");
-    return id;
-  }, []);
-
-  const deleteConversation = useCallback((id: string) => {
-    setConversations((prev) => prev.filter((c) => c.id !== id));
-    if (activeConversationId === id) {
-      setActiveConversationId(null);
-      setView("welcome");
-    }
-  }, [activeConversationId]);
-
-  const addMessageToConversation = useCallback((convId: string, message: Message) => {
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id !== convId) return c;
-        let newTitle = c.title;
-        if (c.title === "New Research" && message.role === "user") {
-          newTitle = message.content.length > 30 ? message.content.slice(0, 30) + "..." : message.content;
-        }
-        return {
-          ...c,
-          title: newTitle,
-          messages: [...c.messages, message],
-        };
-      })
-    );
-  }, []);
-
-  const setConversationMessages = useCallback((convId: string, messages: Message[]) => {
-    setConversations((prev) =>
-      prev.map((c) => (c.id === convId ? { ...c, messages } : c))
-    );
-  }, []);
-
-  const updateConversationTitle = useCallback((convId: string, title: string) => {
-    setConversations((prev) =>
-      prev.map((c) => (c.id === convId ? { ...c, title } : c))
-    );
-  }, []);
-
   return (
     <TaskStoreContext.Provider
       value={{
@@ -623,6 +1081,17 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         setIsCreateTaskOpen,
         createTaskPrefills,
         setCreateTaskPrefills,
+        deployTemplate,
+        setDeployTemplate,
+        isDeployOpen,
+        setIsDeployOpen,
+        messages,
+        setMessages,
+        input,
+        setInput,
+        isStreaming,
+        sendMessage,
+        stopStreaming,
       }}
     >
       {children}

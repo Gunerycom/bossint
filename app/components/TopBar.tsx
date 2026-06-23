@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useTaskStore } from "./TaskStore";
 import type { Task } from "../lib/taskTypes";
+import { useRouter } from "next/navigation";
 import { 
   Menu, 
   RefreshCw, 
@@ -53,6 +54,7 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
     setIsCreateTaskOpen,
     setCreateTaskPrefills,
   } = useTaskStore();
+  const router = useRouter();
 
   useEffect(() => {
     setUserEmail(localStorage.getItem("bossint_user_email"));
@@ -142,10 +144,10 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
 
     // 3. Match quick commands
     const allCommands = [
-      { label: "Go to Command Center (Dashboard)", action: () => setView("dashboard"), icon: LayoutDashboard },
-      { label: "Open Research Chat", action: () => setView("chat"), icon: PlusCircle },
-      { label: "Browse Preset Blueprints", action: () => setView("explore"), icon: Compass },
-      { label: "Open System Settings", action: () => setView("settings"), icon: SettingsIcon },
+      { label: "Go to Command Center (Dashboard)", action: () => router.push("/dashboard"), icon: LayoutDashboard },
+      { label: "Open Research Chat", action: () => router.push("/chat"), icon: PlusCircle },
+      { label: "Browse Preset Blueprints", action: () => router.push("/explore"), icon: Compass },
+      { label: "Open System Settings", action: () => router.push("/settings"), icon: SettingsIcon },
       { label: "Sign Out of Bossint", action: handleLogout, icon: LogOut },
     ];
     const matchedCommands = allCommands.filter((c) =>
@@ -157,17 +159,16 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
       blueprints: matchedBlueprints,
       commands: matchedCommands,
     };
-  }, [searchQuery, tasks]);
+  }, [searchQuery, tasks, router]);
 
   const handleSelectAgent = (id: string) => {
-    setSelectedAgentId(id);
-    setView("agent-detail");
+    router.push(`/agents/${id}`);
     setIsSearchOpen(false);
     setSearchQuery("");
   };
 
   const handleSelectBlueprint = () => {
-    setView("explore");
+    router.push("/explore");
     setIsSearchOpen(false);
     setSearchQuery("");
   };
@@ -194,7 +195,7 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 h-14 border-b border-[var(--border-color)] bg-[var(--bg-surface)] backdrop-blur-md flex items-center justify-between px-4 text-[var(--text-primary)]">
+      <header className="sticky top-0 z-30 h-14 border-b border-[var(--border-color)] bg-[var(--bg-surface)]/80 backdrop-blur-md flex items-center justify-between px-4 text-[var(--text-primary)] transition-colors duration-300">
         {/* Left side: Hamburger + Title */}
         <div className="flex items-center gap-3">
           <button
@@ -207,7 +208,7 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
 
           {currentView === "agent-detail" && (
             <button
-              onClick={() => setView("dashboard")}
+              onClick={() => router.push("/dashboard")}
               className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors mr-1 flex items-center justify-center cursor-pointer"
               title="Back to Command Center"
             >
@@ -306,7 +307,7 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
                 </div>
                 <button
                   onClick={() => {
-                    setView("settings");
+                    router.push("/settings");
                     setShowDropdown(false);
                   }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--bg-surface-hover)] transition-colors cursor-pointer"

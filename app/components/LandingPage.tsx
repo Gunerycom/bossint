@@ -1717,7 +1717,7 @@ export default function LandingPage({ onLogin }: LandingPageProps) {
                       {template.tags.length > 0 && (
                         <div className="flex gap-1">
                           {template.tags.slice(0, 3).map(tag => (
-                            <span key={tag} className="bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-[9px] text-[var(--text-secondary)]">
+                            <span key={tag} className="bg-[var(--bg-surface-hover)] px-1.5 py-0.5 rounded text-[9px] text-[var(--text-secondary)] border border-[var(--border-color)]">
                               #{tag}
                             </span>
                           ))}

@@ -4,6 +4,7 @@ import { useMemo, useEffect, useState } from "react";
 import { useTaskStore } from "./TaskStore";
 import { TEMPLATES, TEMPLATE_CATEGORIES, AgentTemplate } from "../lib/templateData";
 import Dialog from "./Dialog";
+import * as Icons from "lucide-react";
 import { 
   Play, 
   ArrowRight, 
@@ -65,15 +66,7 @@ interface TrendingAgent {
   taskType: "track" | "crawl" | "monitor" | "custom";
 }
 
-const CATEGORY_PILLS = [
-  { id: "finance", label: "Finance", icon: CircleDollarSign },
-  { id: "news", label: "News & Media", icon: Newspaper },
-  { id: "cybersecurity", label: "Cybersecurity", icon: Shield },
-  { id: "competitive", label: "Competitive Intel", icon: Eye },
-  { id: "geopolitics", label: "OSINT & Geopolitics", icon: Globe },
-  { id: "brand", label: "Brand Reputation", icon: Award },
-  { id: "research", label: "Academic Research", icon: Compass },
-];
+
 
 const TRENDING_AGENTS: TrendingAgent[] = [
   {
@@ -231,6 +224,32 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
   const [isExploreOpen, setIsExploreOpen] = useState(false);
   const [modalSearchQuery, setModalSearchQuery] = useState("");
+  const LEFT_CATEGORIES = useMemo(() => {
+    return TEMPLATE_CATEGORIES.filter((_, idx) => idx % 3 === 0);
+  }, []);
+
+  const RIGHT_CATEGORIES = useMemo(() => {
+    return TEMPLATE_CATEGORIES.filter((_, idx) => idx % 3 === 1);
+  }, []);
+
+  const BOTTOM_CATEGORIES = useMemo(() => {
+    return TEMPLATE_CATEGORIES.filter((_, idx) => idx % 3 === 2);
+  }, []);
+
+  // Category counts for pills
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    TEMPLATES.forEach((t) => {
+      counts[t.categoryId] = (counts[t.categoryId] || 0) + 1;
+    });
+    return counts;
+  }, []);
+
+  const CategoryIcon = ({ name, className }: { name: string; className?: string }) => {
+    const IconComponent = (Icons as any)[name] || Icons.HelpCircle;
+    return <IconComponent className={className} strokeWidth={1.5} />;
+  };
+
 
   // Command Center states
   const [dbSearchQuery, setDbSearchQuery] = useState("");
@@ -543,89 +562,175 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-10 animate-fade-in text-[var(--text-primary)]">
       
       {/* 1. Header AI Chat Bot Search Centered Layout */}
-      <div className="text-center space-y-8 py-6 max-w-3xl mx-auto">
-        <div className="space-y-3">
-          <h2 className="text-4xl sm:text-5xl font-black tracking-tight text-[var(--text-primary)] font-sans">
-            Hey {userName}.
-          </h2>
-        </div>
-
-        {/* AI Input Form */}
-        <form onSubmit={handleSearchSubmit} className="relative max-w-2xl sm:max-w-3xl mx-auto w-full group text-left">
-          <div className="w-full rounded-[24px] border border-[var(--border-color)] bg-[var(--bg-surface)] hover:border-[var(--accent)] focus-within:border-[var(--accent)] focus-within:ring-4 focus-within:ring-[var(--accent)]/10 shadow-xl p-4 sm:px-5 sm:py-4 transition-all duration-200">
-            {/* 1st Row: Textarea */}
-            <textarea
-              value={chatbotInput}
-              onChange={(e) => setChatbotInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSearchSubmit(e);
-                }
-              }}
-              placeholder="How can I help you today?"
-              className="w-full bg-transparent text-[var(--text-primary)] text-base sm:text-lg outline-none resize-none placeholder:text-[var(--text-tertiary)] min-h-[40px] focus:outline-none"
-              rows={1}
-            />
-
-            {/* 2nd Row: Actions Toolbar */}
-            <div className="flex items-center justify-between mt-2">
-              {/* Left Side */}
-              <button
-                type="button"
-                className="w-9 h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-                title="Add attachment"
-              >
-                <Plus className="w-5.5 h-5.5" />
-              </button>
-
-              {/* Right Side */}
-              <div className="flex items-center gap-5 text-[var(--text-secondary)]">
-                {/* Voice Input Icon */}
-                <button
-                  type="button"
-                  className="w-9 h-9 flex items-center justify-center hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-                  title="Voice input"
-                >
-                  <svg className="w-5.5 h-5.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3v-6a3 3 0 00-6 0v6a3 3 0 003 3z" />
-                  </svg>
-                </button>
-
-                {/* Send Button */}
-                <button
-                  type="submit"
-                  disabled={!chatbotInput.trim()}
-                  className="w-9 h-9 flex items-center justify-center rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white disabled:opacity-30 disabled:hover:bg-[var(--accent)] transition-all cursor-pointer shadow-sm"
-                  title="Ask AI"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <line x1="12" y1="19" x2="12" y2="5" />
-                    <polyline points="5 12 12 5 19 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </form>
-
-        {/* Category Pills under Chat Box */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mt-5 animate-fade-in font-sans">
-          {CATEGORY_PILLS.map((pill) => {
-            const PillIcon = pill.icon;
+      <div className="relative max-w-7xl mx-auto py-6 px-2 flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-12 animate-fade-in">
+        
+        {/* Left Column of Category Constellation (Desktop only) */}
+        <div className="hidden lg:flex flex-col items-end gap-3 w-64 shrink-0 pr-2">
+          {LEFT_CATEGORIES.map((cat, idx) => {
+            const count = categoryCounts[cat.id] || 0;
+            const offsets = ["lg:mr-8", "lg:mr-2", "lg:mr-10", "lg:mr-4", "lg:mr-12", "lg:mr-6", "lg:mr-1"];
+            const offsetClass = offsets[idx % offsets.length];
             return (
               <button
-                key={pill.id}
+                key={cat.id}
                 type="button"
-                onClick={() => handlePillClick(pill.id)}
-                className="px-3.5 py-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] hover:border-[var(--accent)] text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2 transition-all cursor-pointer shadow-sm hover:shadow active:scale-95"
+                onClick={() => handlePillClick(cat.id)}
+                className={`px-3 py-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] hover:border-[var(--accent)]/50 hover:text-[var(--accent)] text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md active:scale-95 group/pill cursor-pointer ${offsetClass}`}
+                title={cat.description}
               >
-                <PillIcon className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
-                <span>{pill.label}</span>
+                <CategoryIcon name={cat.icon} className="w-3.5 h-3.5 text-[var(--text-secondary)] group-hover/pill:text-[var(--accent)] transition-colors" />
+                <span>{cat.title}</span>
+                <span className="text-[10px] text-[var(--text-tertiary)] bg-[var(--bg-primary)] border border-[var(--border-color)] px-1.5 py-0.2 rounded-full font-medium group-hover/pill:text-[var(--accent)] group-hover/pill:border-[var(--accent)]/30 transition-all">
+                  {count}
+                </span>
               </button>
             );
           })}
         </div>
+
+        {/* Center Chat Box Container */}
+        <div className="w-full max-w-2xl sm:max-w-3xl flex flex-col items-center gap-6 text-center">
+          <div className="space-y-3">
+            <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-[var(--text-primary)] font-sans">
+              Hey {userName}.
+            </h2>
+          </div>
+
+          {/* AI Input Form */}
+          <form onSubmit={handleSearchSubmit} className="relative w-full group text-left">
+            <div className="w-full rounded-[24px] border border-[var(--border-color)] bg-[var(--bg-surface)] hover:border-[var(--accent)] focus-within:border-[var(--accent)] focus-within:ring-4 focus-within:ring-[var(--accent)]/10 shadow-xl p-4 sm:px-5 sm:py-4 transition-all duration-200">
+              {/* 1st Row: Textarea */}
+              <textarea
+                value={chatbotInput}
+                onChange={(e) => setChatbotInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSearchSubmit(e);
+                  }
+                }}
+                placeholder="How can I help you today?"
+                className="w-full bg-transparent text-[var(--text-primary)] text-base sm:text-lg outline-none resize-none placeholder:text-[var(--text-tertiary)] min-h-[40px] focus:outline-none"
+                rows={1}
+              />
+
+              {/* 2nd Row: Actions Toolbar */}
+              <div className="flex items-center justify-between mt-2">
+                {/* Left Side */}
+                <button
+                  type="button"
+                  className="w-9 h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                  title="Add attachment"
+                >
+                  <Plus className="w-5.5 h-5.5" />
+                </button>
+
+                {/* Right Side */}
+                <div className="flex items-center gap-5 text-[var(--text-secondary)]">
+                  {/* Voice Input Icon */}
+                  <button
+                    type="button"
+                    className="w-9 h-9 flex items-center justify-center hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                    title="Voice input"
+                  >
+                    <svg className="w-5.5 h-5.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 003-3v-6a3 3 0 00-6 0v6a3 3 0 003 3z" />
+                    </svg>
+                  </button>
+
+                  {/* Send Button */}
+                  <button
+                    type="submit"
+                    disabled={!chatbotInput.trim()}
+                    className="w-9 h-9 flex items-center justify-center rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white disabled:opacity-30 disabled:hover:bg-[var(--accent)] transition-all cursor-pointer shadow-sm"
+                    title="Ask AI"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <line x1="12" y1="19" x2="12" y2="5" />
+                      <polyline points="5 12 12 5 19 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
+
+          {/* Bottom & Responsive Categories Layout */}
+          <div className="space-y-4 w-full">
+            <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">
+              Explore {TEMPLATES.length} pre-configured agent templates in 20 categories
+            </p>
+
+            {/* Desktop Bottom Cluster (Visible only on desktop lg: viewport) */}
+            <div className="hidden lg:flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto">
+              {BOTTOM_CATEGORIES.map((cat) => {
+                const count = categoryCounts[cat.id] || 0;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => handlePillClick(cat.id)}
+                    className="px-3 py-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] hover:border-[var(--accent)]/50 hover:text-[var(--accent)] text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md active:scale-95 group/pill cursor-pointer"
+                    title={cat.description}
+                  >
+                    <CategoryIcon name={cat.icon} className="w-3.5 h-3.5 text-[var(--text-secondary)] group-hover/pill:text-[var(--accent)] transition-colors" />
+                    <span>{cat.title}</span>
+                    <span className="text-[10px] text-[var(--text-tertiary)] bg-[var(--bg-primary)] border border-[var(--border-color)] px-1.5 py-0.2 rounded-full font-medium group-hover/pill:text-[var(--accent)] group-hover/pill:border-[var(--accent)]/30 transition-all">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Mobile Unified Layout (Visible only on viewports below lg:) */}
+            <div className="flex lg:hidden flex-wrap items-center justify-center gap-2 max-w-xl mx-auto">
+              {TEMPLATE_CATEGORIES.map((cat) => {
+                const count = categoryCounts[cat.id] || 0;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => handlePillClick(cat.id)}
+                    className="px-3 py-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] hover:border-[var(--accent)]/50 hover:text-[var(--accent)] text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md active:scale-95 group/pill cursor-pointer"
+                    title={cat.description}
+                  >
+                    <CategoryIcon name={cat.icon} className="w-3.5 h-3.5 text-[var(--text-secondary)] group-hover/pill:text-[var(--accent)] transition-colors" />
+                    <span>{cat.title}</span>
+                    <span className="text-[10px] text-[var(--text-tertiary)] bg-[var(--bg-primary)] border border-[var(--border-color)] px-1.5 py-0.2 rounded-full font-medium group-hover/pill:text-[var(--accent)] group-hover/pill:border-[var(--accent)]/30 transition-all">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column of Category Constellation (Desktop only) */}
+        <div className="hidden lg:flex flex-col items-start gap-3 w-64 shrink-0 pl-2">
+          {RIGHT_CATEGORIES.map((cat, idx) => {
+            const count = categoryCounts[cat.id] || 0;
+            const offsets = ["lg:ml-6", "lg:ml-12", "lg:ml-2", "lg:ml-10", "lg:ml-4", "lg:ml-8", "lg:ml-1"];
+            const offsetClass = offsets[idx % offsets.length];
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => handlePillClick(cat.id)}
+                className={`px-3 py-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] hover:border-[var(--accent)]/50 hover:text-[var(--accent)] text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md active:scale-95 group/pill cursor-pointer ${offsetClass}`}
+                title={cat.description}
+              >
+                <CategoryIcon name={cat.icon} className="w-3.5 h-3.5 text-[var(--text-secondary)] group-hover/pill:text-[var(--accent)] transition-colors" />
+                <span>{cat.title}</span>
+                <span className="text-[10px] text-[var(--text-tertiary)] bg-[var(--bg-primary)] border border-[var(--border-color)] px-1.5 py-0.2 rounded-full font-medium group-hover/pill:text-[var(--accent)] group-hover/pill:border-[var(--accent)]/30 transition-all">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
       </div>
 
       {/* SECTION 1: My Agents (formerly Command Center) */}
@@ -1234,7 +1339,7 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
                       {template.tags.length > 0 && (
                         <div className="flex gap-1">
                           {template.tags.slice(0, 3).map((t) => (
-                            <span key={t} className="bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-[9px] text-[var(--text-secondary)]">
+                            <span key={t} className="bg-[var(--bg-surface-hover)] px-1.5 py-0.5 rounded text-[9px] text-[var(--text-secondary)] border border-[var(--border-color)]">
                               #{t}
                             </span>
                           ))}

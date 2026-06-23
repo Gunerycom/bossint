@@ -30,6 +30,7 @@ import {
   Link2
 } from "lucide-react";
 import type { Task, TaskStatus } from "../lib/taskTypes";
+import { useRouter } from "next/navigation";
 
 export default function AgentDetailView() {
   const {
@@ -42,6 +43,7 @@ export default function AgentDetailView() {
     clearTaskData,
     updateTaskDetails,
   } = useTaskStore();
+  const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<"output" | "analytics" | "config" | "history">("output");
   const [latestReport, setLatestReport] = useState<string | null>(null);
@@ -111,7 +113,7 @@ export default function AgentDetailView() {
         <AlertTriangle className="w-12 h-12 text-red-500 mx-auto" strokeWidth={1.5} />
         <h3 className="text-base font-bold">Agent Not Found</h3>
         <button
-          onClick={() => setView("dashboard")}
+          onClick={() => router.push("/dashboard")}
           className="text-xs font-semibold text-[var(--accent)] hover:underline cursor-pointer"
         >
           Back to Dashboard
@@ -123,7 +125,7 @@ export default function AgentDetailView() {
   const handleDelete = () => {
     if (confirm("Are you sure you want to delete this agent and all its reports?")) {
       deleteTask(task.id);
-      setView("dashboard");
+      router.push("/dashboard");
     }
   };
 
@@ -213,7 +215,7 @@ export default function AgentDetailView() {
       
       {/* Breadcrumbs */}
       <button
-        onClick={() => setView("dashboard")}
+        onClick={() => router.push("/dashboard")}
         className="flex items-center gap-1 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />

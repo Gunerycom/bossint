@@ -1,8 +1,7 @@
-"use client";
-
 import { useState, useMemo } from "react";
 import { useTaskStore } from "./TaskStore";
 import type { Task, TaskStatus } from "../lib/taskTypes";
+import { useRouter } from "next/navigation";
 import { 
   Play, 
   Pause, 
@@ -41,6 +40,7 @@ export default function DashboardView() {
     setSelectedAgentId,
     updateTaskDetails,
   } = useTaskStore();
+  const router = useRouter();
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
@@ -355,7 +355,7 @@ export default function DashboardView() {
           </p>
         </div>
         <button
-          onClick={() => setView("explore")}
+          onClick={() => router.push("/explore")}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--accent)] text-white text-xs font-semibold hover:bg-[var(--accent-hover)] transition-colors cursor-pointer shadow-sm"
         >
           <Compass className="w-4 h-4" strokeWidth={1.5} />
@@ -383,7 +383,7 @@ export default function DashboardView() {
             <span>Export CSV</span>
           </button>
           <button
-            onClick={() => setView("explore")}
+            onClick={() => router.push("/explore")}
             className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-xl bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] cursor-pointer shadow-sm transition-all"
           >
             <span>Deploy Agent</span>
@@ -636,8 +636,7 @@ export default function DashboardView() {
                                         <div className="flex items-center gap-1.5 group/title">
                                           <button
                                             onClick={() => {
-                                              setSelectedAgentId(task.id);
-                                              setView("agent-detail");
+                                              router.push(`/agents/${task.id}`);
                                             }}
                                             className="hover:text-[var(--accent)] text-left cursor-pointer truncate max-w-[180px]"
                                           >
@@ -711,8 +710,7 @@ export default function DashboardView() {
                                       {/* View detail */}
                                       <button
                                         onClick={() => {
-                                          setSelectedAgentId(task.id);
-                                          setView("agent-detail");
+                                          router.push(`/agents/${task.id}`);
                                         }}
                                         className="p-1.5 rounded hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer inline-flex"
                                         title="View Reports & History"
@@ -767,8 +765,7 @@ export default function DashboardView() {
                   <div
                     key={log.id}
                     onClick={() => {
-                      setSelectedAgentId(log.taskId);
-                      setView("agent-detail");
+                      router.push(`/agents/${log.taskId}`);
                     }}
                     className="p-3 text-[11px] rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)]/20 hover:bg-[var(--bg-surface-hover)] cursor-pointer transition-all duration-150 relative overflow-hidden group"
                   >
