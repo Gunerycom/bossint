@@ -4,6 +4,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ThinkingTrace from "./ThinkingTrace";
 import SourceChips from "./SourceChips";
+import TaskCommandBanner from "./TaskCommandBanner";
+import type { NLPCommandType } from "../lib/taskTypes";
 
 export interface Message {
   id: string;
@@ -14,6 +16,11 @@ export interface Message {
   sources?: Array<{ url: string; title?: string }>;
   isStreaming?: boolean;
   thinkingDuration?: number;
+  images?: string[];
+  /** Whether this is a task command response */
+  isTaskResponse?: boolean;
+  /** The type of task command that generated this response */
+  taskCommandType?: NLPCommandType;
 }
 
 interface MessageBubbleProps {
@@ -21,8 +28,18 @@ interface MessageBubbleProps {
 }
 
 export default function MessageBubble({ message }: MessageBubbleProps) {
-  const { role, content, reasoning, statusLabel, sources, isStreaming, thinkingDuration } =
+  const { role, content, reasoning, statusLabel, sources, isStreaming, thinkingDuration, isTaskResponse, taskCommandType } =
     message;
+
+  // Task command response
+  if (isTaskResponse && taskCommandType) {
+    return (
+      <TaskCommandBanner
+        commandType={taskCommandType}
+        message={content}
+      />
+    );
+  }
 
   if (role === "error") {
     return (
@@ -81,6 +98,17 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {content}
             </ReactMarkdown>
+          </div>
+        )}
+
+        {/* Images */}
+        {message.images && message.images.length > 0 && (
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 px-1">
+            {message.images.map((imgUrl, i) => (
+              <div key={i} className="rounded-xl overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+                <img src={imgUrl} alt="Autopilot Panel" className="w-full h-auto object-cover" />
+              </div>
+            ))}
           </div>
         )}
 

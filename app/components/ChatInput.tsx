@@ -2,6 +2,8 @@
 
 import { useRef, useEffect, type KeyboardEvent, type FormEvent } from "react";
 import { useTheme } from "./ThemeProvider";
+import { useTaskStore } from "./TaskStore";
+import { LayoutTemplate } from "lucide-react";
 
 interface ChatInputProps {
   value: string;
@@ -22,6 +24,7 @@ export default function ChatInput({
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { theme } = useTheme();
+  const { setView } = useTaskStore();
 
   // Focus textarea on mount
   useEffect(() => {
@@ -115,7 +118,16 @@ export default function ChatInput({
           />
 
           {/* Send / Stop button */}
-          <div className="flex-shrink-0 p-2">
+          <div className="flex-shrink-0 p-2 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setView("explore")}
+              title="Explore blueprints"
+              className="w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
+            >
+              <LayoutTemplate className="w-[18px] h-[18px]" strokeWidth={1.5} />
+            </button>
+
             {isStreaming ? (
               <button
                 type="button"

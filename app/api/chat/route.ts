@@ -8,9 +8,9 @@ export const maxDuration = 300;
 /**
  * POST /api/chat
  *
- * Accepts { message, session_id } from the Bossint frontend,
- * proxies to the upstream provider server-side, and re-maps
- * SSE events into Bossint's own contract.
+ * Accepts message parameters from the Bossint frontend,
+ * proxies to the upstream provider (lab.bossint.ai) server-side,
+ * and re-maps SSE events into Bossint's own contract.
  */
 export async function POST(request: NextRequest) {
   const upstreamUrl = process.env.UPSTREAM_CHAT_URL;
@@ -18,25 +18,46 @@ export async function POST(request: NextRequest) {
     return sseError("Bossint is not configured correctly. Please contact support.");
   }
 
-  let body: { message?: string; session_id?: string | null };
+  let body: {
+    message?: string;
+    session_id?: string | null;
+    chat_id?: string | null;
+    stream?: boolean;
+    show_reasoning?: boolean;
+    image_generation?: boolean;
+    followup?: boolean;
+  };
   try {
     body = await request.json();
   } catch {
     return sseError("Invalid request body.");
   }
 
-  const { message, session_id } = body;
+  const {
+    message,
+    session_id,
+    chat_id,
+    stream: clientStream,
+    show_reasoning,
+    image_generation,
+    followup,
+  } = body;
+
   if (!message || typeof message !== "string" || message.trim().length === 0) {
     return sseError("Message is required.");
   }
 
-  // Build upstream payload — hardcoded server-side fields
+  const isStream = clientStream !== false;
+
+  // Build upstream payload forwarding all options
   const upstreamPayload = {
     message: message.trim(),
-    session_id: session_id ?? null,
-    stream: true,
-    show_reasoning: true,
-    followup: !!session_id,
+    session_id: session_id || null,
+    chat_id: chat_id || null,
+    stream: isStream,
+    show_reasoning: show_reasoning !== false,
+    image_generation: image_generation ?? true,
+    followup: followup ?? !!session_id,
   };
 
   try {
@@ -44,18 +65,28 @@ export async function POST(request: NextRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(upstreamPayload),
-      // No signal timeout — let long research queries run
     });
 
-    if (!upstreamResponse.ok || !upstreamResponse.body) {
+    if (!upstreamResponse.ok) {
+      if (isStream) {
+        return sseError("Bossint couldn't complete this request. Please try again.");
+      } else {
+        return Response.json({ error: "Failed to fetch from upstream" }, { status: upstreamResponse.status });
+      }
+    }
+
+    if (!isStream) {
+      const data = await upstreamResponse.json();
+      return Response.json(data);
+    }
+
+    if (!upstreamResponse.body) {
       return sseError("Bossint couldn't complete this request. Please try again.");
     }
 
     const upstreamReader = upstreamResponse.body.getReader();
     const decoder = new TextDecoder();
 
-    // Use start() with an async read loop instead of pull() for more
-    // reliable proxy streaming — avoids backpressure edge cases
     const stream = new ReadableStream({
       async start(controller) {
         let buffer = "";
@@ -64,7 +95,6 @@ export async function POST(request: NextRequest) {
             const { done, value } = await upstreamReader.read();
 
             if (done) {
-              // Flush any remaining buffered data
               if (buffer.trim()) {
                 processBuffer(buffer, controller);
               }
@@ -73,13 +103,9 @@ export async function POST(request: NextRequest) {
             }
 
             buffer += decoder.decode(value, { stream: true });
-
-            // Normalize \r\n to \n to handle different upstream line endings
             buffer = buffer.replace(/\r\n/g, "\n");
 
-            // Process complete SSE messages (separated by double newlines)
             const parts = buffer.split("\n\n");
-            // Keep the last part as it might be incomplete
             buffer = parts.pop() || "";
 
             for (const part of parts) {
@@ -89,7 +115,6 @@ export async function POST(request: NextRequest) {
             }
           }
         } catch (err) {
-          // Only emit error if the controller hasn't been closed
           try {
             emitEvent(controller, {
               type: "error",
@@ -97,7 +122,7 @@ export async function POST(request: NextRequest) {
             });
             controller.close();
           } catch {
-            // Controller already closed — ignore
+            // Ignore
           }
         }
       },
@@ -133,7 +158,7 @@ function processBuffer(raw: string, controller: ReadableStreamDefaultController)
     try {
       data = JSON.parse(jsonStr);
     } catch {
-      continue; // Skip malformed JSON
+      continue;
     }
 
     const eventType = data.type as string;
@@ -162,9 +187,11 @@ function processBuffer(raw: string, controller: ReadableStreamDefaultController)
         break;
 
       case "crawled_url":
+        const urlStr = (data.url as string) || "";
         emitEvent(controller, {
           type: "status",
-          label: "Reading a source",
+          label: urlStr ? `Crawling: ${urlStr}` : "Reading a source",
+          crawledUrl: urlStr,
         });
         break;
 
@@ -194,16 +221,26 @@ function processBuffer(raw: string, controller: ReadableStreamDefaultController)
           type: "done",
           answer: (data.answer as string) || (data.text as string) || "",
           sources: (data.sources as Array<{ url: string; title?: string }>) || [],
+          images: (data.images as string[]) || [],
+        });
+        break;
+
+      case "intent":
+        emitEvent(controller, {
+          type: "intent",
+          action: data.action ?? null,
+          message: data.message ?? null,
         });
         break;
 
       case "image_url":
-      case "intent":
-        // Dropped — not used in this UI
+        emitEvent(controller, {
+          type: "image_url",
+          url: data.url ?? null,
+        });
         break;
 
       default:
-        // Unknown event types are silently dropped
         break;
     }
   }

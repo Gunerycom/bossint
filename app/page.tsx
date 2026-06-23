@@ -1,22 +1,30 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import Header from "./components/Header";
-import EmptyState from "./components/EmptyState";
+import { useState, useRef, useCallback, useEffect } from "react";
 import MessageList from "./components/MessageList";
 import ChatInput from "./components/ChatInput";
+import WelcomeView from "./components/WelcomeView";
+import ExploreView from "./components/ExploreView";
+import DashboardView from "./components/DashboardView";
+import AgentDetailView from "./components/AgentDetailView";
+import TemplateDeployDialog from "./components/TemplateDeployDialog";
 import type { Message } from "./components/MessageBubble";
+import { useTaskStore } from "./components/TaskStore";
+import type { NLPCommandType } from "./lib/taskTypes";
+import { AgentTemplate } from "./lib/templateData";
+import { generateTaskId } from "./lib/taskParser";
 
 /** Parse a raw SSE buffer chunk and dispatch events */
 function parseSSEEvents(
   raw: string,
   handlers: {
-    onSession: (sessionId: string) => void;
     onStatus: (label: string) => void;
     onReasoning: (text: string) => void;
     onAnswer: (text: string) => void;
-    onDone: (answer: string, sources: Array<{ url: string; title?: string }>) => void;
+    onDone: (answer: string, sources: Array<{ url: string; title?: string }>, images?: string[]) => void;
     onError: (text: string) => void;
+    onIntent?: (action: string, message: string) => void;
+    onImageUrl?: (url: string) => void;
   }
 ) {
   const lines = raw.split("\n");
@@ -37,9 +45,6 @@ function parseSSEEvents(
     const eventType = data.type as string;
 
     switch (eventType) {
-      case "session":
-        handlers.onSession((data.sessionId as string) || "");
-        break;
       case "status":
         handlers.onStatus((data.label as string) || "");
         break;
@@ -51,9 +56,16 @@ function parseSSEEvents(
         break;
       case "done":
         handlers.onDone(
-          (data.answer as string) || "",
-          (data.sources as Array<{ url: string; title?: string }>) || []
+          (data.answer as string) || (data.text as string) || "",
+          (data.sources as Array<{ url: string; title?: string }>) || [],
+          (data.images as string[]) || []
         );
+        break;
+      case "intent":
+        handlers.onIntent?.((data.action as string) || "", (data.message as string) || "");
+        break;
+      case "image_url":
+        handlers.onImageUrl?.((data.url as string) || "");
         break;
       case "error":
         handlers.onError(
@@ -68,13 +80,111 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  
+  const [deployTemplate, setDeployTemplate] = useState<AgentTemplate | null>(null);
+  const [isDeployOpen, setIsDeployOpen] = useState(false);
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const thinkingStartRef = useRef<number | null>(null);
+  
+  const {
+    currentView,
+    setView,
+    activeConversationId,
+    setActiveConversationId,
+    conversations,
+    createConversation,
+    setConversationMessages,
+    syncTasks,
+    registerTriggerCommand,
+    addTask,
+    triggerCommand
+  } = useTaskStore();
 
-  const sendMessage = useCallback(async () => {
-    const text = input.trim();
+  // Load conversation messages when switching conversations
+  useEffect(() => {
+    if (activeConversationId && currentView === "chat") {
+      const activeConv = conversations.find((c) => c.id === activeConversationId);
+      setMessages(activeConv?.messages || []);
+    } else {
+      setMessages([]);
+    }
+  }, [activeConversationId, currentView, conversations]);
+
+  // Handle auto-deploy of a pending agent configured on the landing page
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const pendingStr = localStorage.getItem("bossint_pending_deploy");
+    if (!pendingStr) return;
+
+    try {
+      const pending = JSON.parse(pendingStr);
+      if (pending && pending.name && pending.prompt) {
+        const taskId = generateTaskId();
+        const now = Date.now();
+
+        const schedule = pending.schedule;
+        let intervalMs = 24 * 60 * 60 * 1000; // default daily
+        if (schedule.includes("1 hour")) intervalMs = 60 * 60 * 1000;
+        else if (schedule.includes("6 hours")) intervalMs = 6 * 60 * 60 * 1000;
+        else if (schedule.includes("12 hours")) intervalMs = 12 * 60 * 60 * 1000;
+        else if (schedule === "weekly") intervalMs = 7 * 24 * 60 * 60 * 1000;
+
+        const SCHEDULE_PRESETS = [
+          { label: "Every hour", value: "every 1 hour" },
+          { label: "Every 6 hours", value: "every 6 hours" },
+          { label: "Every 12 hours", value: "every 12 hours" },
+          { label: "Daily", value: "daily" },
+          { label: "Weekly", value: "weekly" },
+        ];
+
+        const newTask = {
+          id: taskId,
+          title: pending.name.trim(),
+          prompt: pending.prompt.trim(),
+          type: pending.taskType,
+          status: "active" as const,
+          schedule: {
+            label: SCHEDULE_PRESETS.find((p) => p.value === schedule)?.label || "Daily",
+            intervalMs,
+          },
+          target: pending.name.trim(),
+          createdAt: now,
+          nextRunAt: now + intervalMs,
+          runCount: 0,
+          data: [],
+        };
+
+        addTask(newTask);
+
+        const nlpCommand = `${pending.taskType} "${pending.name.trim()}" ${schedule}: ${pending.prompt.trim()}`;
+        triggerCommand(nlpCommand);
+
+        localStorage.removeItem("bossint_pending_deploy");
+        setView("dashboard");
+      }
+    } catch (err) {
+      console.error("Error processing pending deployment:", err);
+    }
+  }, [addTask, triggerCommand, setView]);
+
+  const fillInput = useCallback((text: string) => {
+    setInput(text);
+  }, []);
+
+  const handleDeployClick = useCallback((template: AgentTemplate) => {
+    setDeployTemplate(template);
+    setIsDeployOpen(true);
+  }, []);
+
+  const sendMessage = useCallback(async (customText?: string, targetConvId?: string | null) => {
+    const text = (customText || input).trim();
     if (!text || isStreaming) return;
+
+    let convId = targetConvId || activeConversationId;
+    if (!convId) {
+      convId = createConversation(text.length > 35 ? text.slice(0, 35) + "..." : text);
+    }
 
     // Add user message
     const userMessage: Message = {
@@ -91,11 +201,25 @@ export default function Home() {
       reasoning: "",
       statusLabel: "",
       sources: [],
+      images: [],
       isStreaming: true,
     };
 
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
-    setInput("");
+    // Retrieve previous messages for the active context
+    const activeConv = conversations.find((c) => c.id === convId);
+    const existingMessages = activeConv?.messages || [];
+    const updatedInitialMessages = [...existingMessages, userMessage, assistantMessage];
+    
+    // Update both local state and TaskStore context
+    setMessages(updatedInitialMessages);
+    setConversationMessages(convId, updatedInitialMessages);
+    setView("chat");
+    setActiveConversationId(convId);
+
+    if (!customText) {
+      setInput("");
+    }
+    
     setIsStreaming(true);
     thinkingStartRef.current = Date.now();
 
@@ -103,13 +227,19 @@ export default function Home() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
+    let taskMsg = "";
+    let finalMessagesList = updatedInitialMessages;
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
-          session_id: sessionId,
+          session_id: convId, // Pass actual conversation ID
+          stream: true,
+          image_generation: true,
+          followup: existingMessages.length > 0,
         }),
         signal: controller.signal,
       });
@@ -127,73 +257,122 @@ export default function Home() {
       let reasoningText = "";
       let currentStatus = "";
       let receivedDone = false;
+      let isTask = false;
+      let taskAction = "";
+      let assistantImages: string[] = [];
 
       const handlers = {
-        onSession: (sid: string) => {
-          if (sid) setSessionId(sid);
-        },
         onStatus: (label: string) => {
           currentStatus = label;
-          setMessages((prev) =>
-            prev.map((m) =>
+          setMessages((prev) => {
+            const next = prev.map((m) =>
               m.id === assistantId
                 ? { ...m, statusLabel: currentStatus }
                 : m
-            )
-          );
+            );
+            finalMessagesList = next;
+            return next;
+          });
         },
         onReasoning: (chunk: string) => {
           reasoningText += chunk;
-          setMessages((prev) =>
-            prev.map((m) =>
+          setMessages((prev) => {
+            const next = prev.map((m) =>
               m.id === assistantId
                 ? { ...m, reasoning: reasoningText, statusLabel: currentStatus }
                 : m
-            )
-          );
+            );
+            finalMessagesList = next;
+            return next;
+          });
         },
         onAnswer: (chunk: string) => {
           answerText += chunk;
-          setMessages((prev) =>
-            prev.map((m) =>
+          setMessages((prev) => {
+            const next = prev.map((m) =>
               m.id === assistantId
                 ? { ...m, content: answerText }
                 : m
-            )
-          );
+            );
+            finalMessagesList = next;
+            return next;
+          });
         },
-        onDone: (answer: string, sources: Array<{ url: string; title?: string }>) => {
+        onIntent: (action: string, msg: string) => {
+          isTask = true;
+          taskAction = action;
+          taskMsg = msg;
+          setMessages((prev) => {
+            const next = prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    isTaskResponse: true,
+                    taskCommandType: action as NLPCommandType,
+                    content: answerText || msg,
+                  }
+                : m
+            );
+            finalMessagesList = next;
+            return next;
+          });
+        },
+        onImageUrl: (url: string) => {
+          assistantImages.push(url);
+          setMessages((prev) => {
+            const next = prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, images: assistantImages }
+                : m
+            );
+            finalMessagesList = next;
+            return next;
+          });
+        },
+        onDone: (answer: string, sources: Array<{ url: string; title?: string }>, images?: string[]) => {
           receivedDone = true;
-          const finalAnswer = answer || answerText;
+          const finalAnswer = answer || answerText || taskMsg;
           const thinkingDuration = thinkingStartRef.current
             ? Math.round((Date.now() - thinkingStartRef.current) / 1000)
             : undefined;
 
-          setMessages((prev) =>
-            prev.map((m) =>
+          const mergedImages = Array.from(new Set([...assistantImages, ...(images || [])]));
+
+          setMessages((prev) => {
+            const next = prev.map((m) =>
               m.id === assistantId
                 ? {
                     ...m,
                     content: finalAnswer,
                     sources,
+                    images: mergedImages,
                     isStreaming: false,
                     thinkingDuration,
                   }
                 : m
-            )
-          );
+            );
+            finalMessagesList = next;
+            setConversationMessages(convId, next);
+            return next;
+          });
+
+          // Sync tasks list
+          syncTasks();
         },
         onError: (errorText: string) => {
           receivedDone = true;
-          setMessages((prev) =>
-            prev
+          setMessages((prev) => {
+            const next = prev
               .filter((m) => m.id !== assistantId)
               .concat({
                 id: `error-${Date.now()}`,
                 role: "error" as const,
                 content: errorText,
-              })
-          );
+              });
+            finalMessagesList = next;
+            setConversationMessages(convId, next);
+            return next;
+          });
         },
       };
 
@@ -202,10 +381,8 @@ export default function Home() {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        // Normalize \r\n to \n
         buffer = buffer.replace(/\r\n/g, "\n");
 
-        // Process complete SSE events
         const parts = buffer.split("\n\n");
         buffer = parts.pop() || "";
 
@@ -216,100 +393,146 @@ export default function Home() {
         }
       }
 
-      // ** CRITICAL: Flush any remaining buffer after stream ends **
-      // The final event (often "done") may not have a trailing \n\n
       if (buffer.trim()) {
         parseSSEEvents(buffer, handlers);
       }
 
-      // If stream ended without a done event, finalize the message
       if (!receivedDone) {
         const thinkingDuration = thinkingStartRef.current
           ? Math.round((Date.now() - thinkingStartRef.current) / 1000)
           : undefined;
-        setMessages((prev) =>
-          prev.map((m) => {
+        
+        setMessages((prev) => {
+          const next = prev.map((m) => {
             if (m.id === assistantId && m.isStreaming) {
               return {
                 ...m,
                 isStreaming: false,
                 thinkingDuration,
+                content: m.content || taskMsg || "(Completed)",
               };
             }
             return m;
-          })
-        );
+          });
+          finalMessagesList = next;
+          setConversationMessages(convId, next);
+          return next;
+        });
+        syncTasks();
       }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        // User cancelled — finalize the message as-is
-        setMessages((prev) =>
-          prev.map((m) => {
+        setMessages((prev) => {
+          const next = prev.map((m) => {
             if (m.id === assistantId && m.isStreaming) {
               return {
                 ...m,
                 isStreaming: false,
-                content: m.content || "(Cancelled)",
+                content: m.content || taskMsg || "(Cancelled)",
               };
             }
             return m;
-          })
-        );
+          });
+          finalMessagesList = next;
+          setConversationMessages(convId, next);
+          return next;
+        });
       } else {
-        // Connection error
-        setMessages((prev) =>
-          prev
+        setMessages((prev) => {
+          const next = prev
             .filter((m) => m.id !== assistantId)
             .concat({
               id: `error-${Date.now()}`,
               role: "error",
-              content:
-                "Bossint couldn\u2019t complete this request. Please try again.",
-            })
-        );
+              content: "Bossint couldn't complete this request. Please try again.",
+            });
+          finalMessagesList = next;
+          setConversationMessages(convId, next);
+          return next;
+        });
       }
     } finally {
       setIsStreaming(false);
       abortControllerRef.current = null;
       thinkingStartRef.current = null;
+      
+      // Final synchronization of conversation state
+      if (finalMessagesList.length > 0) {
+        setConversationMessages(convId, finalMessagesList);
+      }
     }
-  }, [input, isStreaming, sessionId]);
+  }, [input, isStreaming, activeConversationId, conversations, createConversation, setConversationMessages, setView, setActiveConversationId, syncTasks]);
+
+  // Connect page message trigger to TaskStore trigger
+  useEffect(() => {
+    registerTriggerCommand((cmdText) => {
+      sendMessage(cmdText);
+    });
+  }, [sendMessage, registerTriggerCommand]);
 
   const stopStreaming = useCallback(() => {
     abortControllerRef.current?.abort();
   }, []);
 
-  const hasMessages = messages.length > 0;
+  const renderViewContent = () => {
+    switch (currentView) {
+      case "welcome":
+        return (
+          <div className="flex-1 overflow-y-auto">
+            <WelcomeView onPromptFill={fillInput} onDeployClick={handleDeployClick} />
+          </div>
+        );
+      case "explore":
+        return (
+          <div className="flex-1 overflow-y-auto">
+            <ExploreView onDeployClick={handleDeployClick} />
+          </div>
+        );
+      case "dashboard":
+        return (
+          <div className="flex-1 overflow-y-auto">
+            <DashboardView />
+          </div>
+        );
+      case "agent-detail":
+        return (
+          <div className="flex-1 overflow-y-auto">
+            <AgentDetailView />
+          </div>
+        );
+      case "chat":
+      default:
+        return (
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="flex-1 overflow-y-auto">
+              {messages.length === 0 ? (
+                <WelcomeView onPromptFill={fillInput} onDeployClick={handleDeployClick} />
+              ) : (
+                <MessageList messages={messages} />
+              )}
+            </div>
+            <ChatInput
+              value={input}
+              onChange={setInput}
+              onSend={() => sendMessage()}
+              onStop={stopStreaming}
+              isStreaming={isStreaming}
+            />
+          </div>
+        );
+    }
+  };
 
   return (
-    <div className="flex flex-col h-full">
-      <Header />
+    <div className="flex flex-col h-full overflow-hidden">
+      {renderViewContent()}
 
-      <main className="flex-1 flex flex-col min-h-0">
-        {!hasMessages ? (
-          <>
-            <EmptyState />
-            <ChatInput
-              value={input}
-              onChange={setInput}
-              onSend={sendMessage}
-              onStop={stopStreaming}
-              isStreaming={isStreaming}
-            />
-          </>
-        ) : (
-          <>
-            <MessageList messages={messages} />
-            <ChatInput
-              value={input}
-              onChange={setInput}
-              onSend={sendMessage}
-              onStop={stopStreaming}
-              isStreaming={isStreaming}
-            />
-          </>
-        )}
-      </main>
+      {/* Global Template Deploy Dialog */}
+      <TemplateDeployDialog
+        isOpen={isDeployOpen}
+        onClose={() => setIsDeployOpen(false)}
+        template={deployTemplate}
+      />
     </div>
   );
 }

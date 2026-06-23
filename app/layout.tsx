@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { TaskStoreProvider } from "./components/TaskStore";
+import AppLayout from "./components/AppLayout";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",
 });
@@ -19,11 +21,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+  }: Readonly<{
+    children: React.ReactNode;
+  }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full`} suppressHydrationWarning>
+    <html lang="en" className={`${plusJakartaSans.variable} h-full`} suppressHydrationWarning>
       <head>
         {/* Inline script to prevent flash of wrong theme */}
         <script
@@ -43,9 +45,15 @@ export default function RootLayout({
       </head>
       <body
         className="h-full antialiased"
-        style={{ fontFamily: "var(--font-inter, var(--font-sans))" }}
+        style={{ fontFamily: "var(--font-sans)" }}
       >
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <TaskStoreProvider>
+            <AppLayout>
+              {children}
+            </AppLayout>
+          </TaskStoreProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
