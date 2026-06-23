@@ -11,6 +11,7 @@ import {
 import Dialog, { DialogButton } from "./Dialog";
 import { TEMPLATES, TEMPLATE_CATEGORIES, AgentTemplate } from "../lib/templateData";
 import TemplateDeployDialog from "./TemplateDeployDialog";
+import { InteractiveDots } from "@/components/ui/interactive-dots-1";
 
 interface TrendingAgent {
   id: string;
@@ -1586,6 +1587,33 @@ export default function LandingPage({ onLogin }: LandingPageProps) {
               })}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* SECTION 3.5: INTERACTIVE DOTS (Light showcase section) */}
+      <div id="interactive-dots" className="w-full h-screen relative overflow-hidden flex flex-col items-center justify-center bg-white border-t border-[#E8E4DC] shrink-0 font-sans select-none">
+        <InteractiveDots dotColor="#0000ff" dotSize={10} className="absolute inset-0 z-0 pointer-events-auto" />
+        <div className="relative z-10 text-center space-y-4 px-6 flex flex-col items-center justify-center pointer-events-none">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedAgentToDeploy(null);
+              setPendingDeployDetails(null);
+              setModalError("");
+              setModalEmail("");
+              setModalPassword("");
+              setIsAuthOpen(true);
+            }}
+            className="pointer-events-auto cursor-pointer group flex flex-col items-center"
+          >
+            <h2 className="text-5xl lg:text-[64px] font-black tracking-tight text-white transition-all duration-300 font-sans leading-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.15)]">
+              Start Monitoring Internet
+            </h2>
+            <div className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-white/90 group-hover:text-white transition-colors drop-shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
+              <span>Deploy your autonomous army now</span>
+              <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
         </div>
       </div>
 
