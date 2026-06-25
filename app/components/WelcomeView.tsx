@@ -251,7 +251,7 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
   };
 
 
-  // Command Center states
+  // My Agents states
   const [dbSearchQuery, setDbSearchQuery] = useState("");
   const [dbStatusFilter, setDbStatusFilter] = useState<"all" | "active" | "paused" | "error">("all");
   const [dbCategoryFilter, setDbCategoryFilter] = useState<string>("all");
@@ -733,7 +733,7 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
 
       </div>
 
-      {/* SECTION 1: My Agents (formerly Command Center) */}
+      {/* SECTION 1: My Agents */}
       <div className="space-y-6 pt-6 border-t border-[var(--border-color)]">
         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
           <div>

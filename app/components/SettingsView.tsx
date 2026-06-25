@@ -342,7 +342,7 @@ export default function SettingsView() {
             <div className="space-y-6">
               <div>
                 <h3 className="text-sm font-bold">Quota &amp; Billing Limit</h3>
-                <p className="text-[11px] text-[var(--text-secondary)]">Review limits on active crons and data scraping quotas.</p>
+                <p className="text-[11px] text-[var(--text-secondary)]">Review limits on active agents and data scraping quotas.</p>
               </div>
 
               {/* Plan Card */}

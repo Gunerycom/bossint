@@ -371,7 +371,7 @@ export default function DashboardView() {
       {/* Top Header Row */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Command Center</h2>
+          <h2 className="text-xl font-bold tracking-tight">My Agents</h2>
           <p className="text-xs text-[var(--text-secondary)]">Monitor and coordinate your running AI intelligence fleet.</p>
         </div>
         <div className="flex items-center gap-2">

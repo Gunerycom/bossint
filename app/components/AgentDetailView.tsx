@@ -27,10 +27,17 @@ import {
   Bell,
   Mail,
   Send,
-  Link2
+  Link2,
+  Search,
+  Share2,
+  Bookmark,
+  Coins,
+  Cpu,
+  ExternalLink
 } from "lucide-react";
 import type { Task, TaskStatus } from "../lib/taskTypes";
 import { useRouter } from "next/navigation";
+import { generateUniqueReport } from "../lib/reportGenerator";
 
 export default function AgentDetailView() {
   const {
@@ -40,7 +47,6 @@ export default function AgentDetailView() {
     runTask,
     setTaskStatus,
     deleteTask,
-    clearTaskData,
     updateTaskDetails,
   } = useTaskStore();
   const router = useRouter();
@@ -65,6 +71,14 @@ export default function AgentDetailView() {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const task = tasks.find((t) => t.id === selectedAgentId);
+
+  const reportText = useMemo(() => {
+    return task ? generateUniqueReport(task, latestReport) : "";
+  }, [task, latestReport]);
+
+  const sections = useMemo(() => {
+    return getSectionsFromMarkdown(reportText);
+  }, [reportText]);
 
   // Sync config state when task changes or config tab is selected
   useEffect(() => {
@@ -135,7 +149,7 @@ export default function AgentDetailView() {
         return (
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
             <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} />
-            Cron Active
+            Agent Active
           </span>
         );
       case "running":
@@ -149,7 +163,7 @@ export default function AgentDetailView() {
         return (
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
             <Pause className="w-3.5 h-3.5" strokeWidth={2} />
-            Cron Paused
+            Agent Paused
           </span>
         );
       case "error":
@@ -219,7 +233,7 @@ export default function AgentDetailView() {
         className="flex items-center gap-1 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
-        <span>Back to Command Center</span>
+        <span>Back to My Agents</span>
       </button>
 
       {/* Hero Header Block */}
@@ -273,13 +287,7 @@ export default function AgentDetailView() {
             </button>
           )}
 
-          <button
-            onClick={() => clearTaskData(task.id)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-red-500/10 text-red-500 hover:bg-red-500/5 text-xs font-semibold cursor-pointer transition-all"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Clear Logs</span>
-          </button>
+
 
           <button
             onClick={handleDelete}
@@ -345,7 +353,7 @@ export default function AgentDetailView() {
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-[var(--accent)]" />
-                  Latest Intelligence Briefing
+                  In This Report
                 </h3>
                 {latestReport && (
                   <button
@@ -377,18 +385,16 @@ export default function AgentDetailView() {
                   <div className="text-zinc-500">&nbsp;&nbsp;[change_magnitude]: +2.3%</div>
                 </div>
               ) : (
-                <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-6 min-h-[360px] shadow-sm">
+                <div className="min-h-[360px]">
                   {isLoadingReport ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-[var(--text-tertiary)] text-xs gap-3">
+                    <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-6 flex flex-col items-center justify-center py-20 text-[var(--text-tertiary)] text-xs gap-3 shadow-sm animate-pulse">
                       <RefreshCw className="w-6 h-6 animate-spin text-[var(--accent)]" />
                       <span>Retrieving analysis details...</span>
                     </div>
-                  ) : latestReport ? (
-                    <div className="markdown-content text-sm space-y-4">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{latestReport}</ReactMarkdown>
-                    </div>
+                  ) : reportText ? (
+                    <IntelligenceReportView reportText={reportText} />
                   ) : (
-                    <div className="flex flex-col items-center justify-center py-20 text-[var(--text-tertiary)] text-xs text-center space-y-2">
+                    <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-6 flex flex-col items-center justify-center py-20 text-[var(--text-tertiary)] text-xs text-center space-y-2 shadow-sm">
                       <FileCode className="w-10 h-10 text-[var(--text-tertiary)]" />
                       <p className="font-semibold text-[var(--text-primary)]">No scans executed yet</p>
                       <p className="max-w-xs leading-normal">
@@ -645,53 +651,677 @@ export default function AgentDetailView() {
         </div>
 
         {/* Sidebar Info Area (Right 1/3) */}
-        <div className="space-y-4">
+        <div className="space-y-4 lg:sticky lg:top-6 self-start">
           <h3 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-[var(--accent)]" />
-            Agent Console Summary
+            {activeTab === "output" ? (
+              <>
+                <FileText className="w-4 h-4 text-[var(--accent)]" />
+                <span>Sections</span>
+              </>
+            ) : (
+              <>
+                <Terminal className="w-4 h-4 text-[var(--accent)]" />
+                <span>Agent Console Summary</span>
+              </>
+            )}
           </h3>
 
-          <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-5 space-y-4 shadow-sm text-xs">
-            <div className="space-y-2">
-              <h4 className="font-bold text-[var(--text-primary)]">Autopilot Pipeline details</h4>
-              <div className="divide-y divide-[var(--border-subtle)] text-[11px] text-[var(--text-secondary)]">
-                <div className="py-2 flex justify-between">
-                  <span>Type</span>
-                  <span className="font-mono font-bold text-[var(--text-primary)]">{task.type.toUpperCase()}</span>
-                </div>
-                <div className="py-2 flex justify-between">
-                  <span>Status</span>
-                  <span>{getStatusIndicator()}</span>
-                </div>
-                <div className="py-2 flex justify-between">
-                  <span>Schedule</span>
-                  <span className="font-bold text-[var(--text-primary)]">{task.schedule.label}</span>
-                </div>
-                <div className="py-2 flex justify-between">
-                  <span>Runs Executed</span>
-                  <span className="font-bold text-indigo-500">{task.runCount}</span>
-                </div>
-                <div className="py-2 flex justify-between">
-                  <span>Created At</span>
-                  <span className="font-bold text-[var(--text-primary)]">{new Date(task.createdAt).toLocaleDateString()}</span>
+          {activeTab === "output" ? (
+            <InThisReportSidebar sections={sections} />
+          ) : (
+            <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-5 space-y-4 shadow-sm text-xs animate-fade-in">
+              <div className="space-y-2">
+                <h4 className="font-bold text-[var(--text-primary)]">Autopilot Pipeline details</h4>
+                <div className="divide-y divide-[var(--border-subtle)] text-[11px] text-[var(--text-secondary)]">
+                  <div className="py-2 flex justify-between">
+                    <span>Type</span>
+                    <span className="font-mono font-bold text-[var(--text-primary)]">{task.type.toUpperCase()}</span>
+                  </div>
+                  <div className="py-2 flex justify-between">
+                    <span>Status</span>
+                    <span>{getStatusIndicator()}</span>
+                  </div>
+                  <div className="py-2 flex justify-between">
+                    <span>Schedule</span>
+                    <span className="font-bold text-[var(--text-primary)]">{task.schedule.label}</span>
+                  </div>
+                  <div className="py-2 flex justify-between">
+                    <span>Runs Executed</span>
+                    <span className="font-bold text-indigo-500">{task.runCount}</span>
+                  </div>
+                  <div className="py-2 flex justify-between">
+                    <span>Created At</span>
+                    <span className="font-bold text-[var(--text-primary)]">{new Date(task.createdAt).toLocaleDateString()}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="pt-2 border-t border-[var(--border-subtle)] space-y-2">
-              <h4 className="font-bold text-[var(--text-primary)]">System Diagnostics</h4>
-              <div className="p-3 bg-[var(--bg-primary)]/40 rounded-xl border border-[var(--border-color)] font-mono text-[10px] text-[var(--text-secondary)] space-y-1">
-                <div>[SYSTEM] PID: {Math.floor(Math.random() * 8000) + 1000}</div>
-                <div>[SYSTEM] THREADS: AUTOPILOT-4</div>
-                <div>[SYSTEM] STATUS: OPERATIONAL</div>
-                <div>[SYSTEM] ALL CLEAR: TRUE</div>
-              </div>
+
             </div>
-          </div>
+          )}
         </div>
 
       </div>
 
     </div>
   );
+}
+
+interface ParsedItem {
+  title: string;
+  description: string;
+  highlight: string;
+  growthText?: string;
+  statusTag?: string;
+  url?: string;
+  tags: string[];
+}
+
+interface ParsedSection {
+  id: string;
+  title: string;
+  emoji: string;
+  items: ParsedItem[];
+}
+
+interface ReportSectionHeader {
+  id: string;
+  title: string;
+  emoji: string;
+}
+
+function parseReport(reportText: string): { sections: ParsedSection[] } | null {
+  if (!reportText) return null;
+  
+  const lines = reportText.split("\n");
+  const sections: ParsedSection[] = [];
+  let currentSection: ParsedSection | null = null;
+  let index = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    let title = "";
+    
+    // Check if it's a standard markdown header
+    const mdHeaderMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (mdHeaderMatch) {
+      title = mdHeaderMatch[2].replace(/\*\*|_/g, "").trim();
+    } else {
+      // Check if it's a bold line that looks like a header
+      const boldHeaderMatch = trimmed.match(/^\*\*(Market Overview|Key Players|Market Segments|Recent Developments|Buyer Dynamics|Trends & Outlook|Competitive Dynamics|Next Steps|Funding Deals|Product Releases|Top News|Announcements|Latest Updates|Latest Crawled Data|News|Current Tasks)\*\*$/i);
+      if (boldHeaderMatch) {
+        title = boldHeaderMatch[1].trim();
+      }
+    }
+
+    if (title) {
+      // Determine emoji
+      let emoji = "📋";
+      const lowerTitle = title.toLowerCase();
+      if (lowerTitle.includes("market overview") || lowerTitle.includes("overview")) emoji = "📊";
+      else if (lowerTitle.includes("key players") || lowerTitle.includes("player")) emoji = "👥";
+      else if (lowerTitle.includes("segments") || lowerTitle.includes("segment")) emoji = "🧩";
+      else if (lowerTitle.includes("developments") || lowerTitle.includes("development")) emoji = "📰";
+      else if (lowerTitle.includes("buyer")) emoji = "🛍️";
+      else if (lowerTitle.includes("trends") || lowerTitle.includes("outlook")) emoji = "📈";
+      else if (lowerTitle.includes("competitive")) emoji = "⚔️";
+      else if (lowerTitle.includes("next steps") || lowerTitle.includes("next")) emoji = "🚀";
+      else if (lowerTitle.includes("funding")) emoji = "💰";
+      else if (lowerTitle.includes("product") || lowerTitle.includes("release")) emoji = "🚀";
+      else if (lowerTitle.includes("news")) emoji = "📰";
+
+      currentSection = {
+        id: `section-${index}`,
+        title,
+        emoji,
+        items: []
+      };
+      sections.push(currentSection);
+      index++;
+      continue;
+    }
+
+    // Bullet point match (e.g., "- **Groq** confirmed a...")
+    const bulletMatch = trimmed.match(/^[-*+]\s+(.*)$/);
+    if (bulletMatch && currentSection) {
+      const content = bulletMatch[1].trim();
+      
+      let itemTitle = "";
+      let desc = content;
+      
+      const boldMatch = content.match(/^\*\*([^*]+)\*\*(.*)$/);
+      if (boldMatch) {
+        itemTitle = boldMatch[1].trim();
+        desc = boldMatch[2].trim();
+      } else {
+        const words = content.split(" ");
+        itemTitle = words.slice(0, 2).join(" ");
+        desc = words.slice(2).join(" ");
+      }
+
+      let cleanDesc = desc.trim();
+      if (cleanDesc.startsWith(":") || cleanDesc.startsWith("-") || cleanDesc.startsWith(",")) {
+        cleanDesc = cleanDesc.substring(1).trim();
+      }
+      if (cleanDesc.startsWith(",")) {
+        cleanDesc = cleanDesc.substring(1).trim();
+      }
+      
+      // Extract highlights
+      let highlight = "";
+      const moneyMatch = content.match(/(\$\d+(?:\.\d+)?\s*(?:million|billion|trillion|M|B|K)?|\$\d{1,3}(?:,\d{3})*(?:\.\d+)?)/i);
+      const usdMatch = content.match(/(?:USD|\$)\s*\d+(?:\.\d+)?\s*(?:billion|million|trillion|M|B)?/i);
+      if (usdMatch) {
+        highlight = usdMatch[0];
+      } else if (moneyMatch) {
+        highlight = moneyMatch[0];
+      } else {
+        const quoteMatch = content.match(/['"“]([^'”"]+)['"”]/);
+        if (quoteMatch) {
+          highlight = quoteMatch[1];
+        } else {
+          const productMatch = content.match(/(GPT-\d+[\w]*|Vision Pro\s*\d*|RTX\s*[\w\d]+)/i);
+          if (productMatch) {
+            highlight = productMatch[1];
+          }
+        }
+      }
+
+      // Extract status/tag inside brackets like [Expanding]
+      let statusTag = "";
+      const statusMatch = content.match(/\[([^\]]+)\]/);
+      if (statusMatch) {
+        statusTag = statusMatch[1].trim();
+      }
+
+      // Extract Growth text
+      let growthText = "";
+      const growthMatch = content.match(/Growth:\s*([^.]+)\.?/i);
+      if (growthMatch) {
+        growthText = growthMatch[1].trim();
+      }
+
+      // Extract URLs
+      let url = "";
+      const urlMatch = content.match(/(https?:\/\/[^\s]+|[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?)/);
+      if (urlMatch) {
+        url = urlMatch[0].trim();
+      }
+
+      // Clean description
+      let finalDescription = cleanDesc;
+      if (growthMatch) {
+        finalDescription = finalDescription.replace(growthMatch[0], "");
+      }
+      if (statusMatch) {
+        finalDescription = finalDescription.replace(statusMatch[0], "");
+      }
+      if (urlMatch) {
+        finalDescription = finalDescription.replace(urlMatch[0], "");
+      }
+      finalDescription = finalDescription.replace(/Sources?:?\s*/gi, "").trim();
+      if (finalDescription.startsWith(":") || finalDescription.startsWith("-") || finalDescription.startsWith(",")) {
+        finalDescription = finalDescription.substring(1).trim();
+      }
+      if (finalDescription.length > 0) {
+        finalDescription = finalDescription.charAt(0).toUpperCase() + finalDescription.slice(1);
+      }
+
+      // Generate tags
+      const tags: string[] = [];
+      const lowerContent = content.toLowerCase();
+      if (lowerContent.includes("ai") || lowerContent.includes("gpt") || lowerContent.includes("llm")) {
+        tags.push("AI");
+      }
+      if (lowerContent.includes("chip") || lowerContent.includes("semiconductor") || lowerContent.includes("nvidia")) {
+        tags.push("Hardware");
+      }
+      if (lowerContent.includes("fund") || lowerContent.includes("raise") || lowerContent.includes("valuation") || lowerContent.includes("million") || lowerContent.includes("billion")) {
+        tags.push("Funding");
+      }
+      if (lowerContent.includes("launch") || lowerContent.includes("release") || lowerContent.includes("unveil")) {
+        tags.push("Launch");
+      }
+      if (lowerContent.includes("apple") || lowerContent.includes("vision")) {
+        tags.push("Spatial");
+      }
+      if (statusTag && !tags.includes(statusTag)) {
+        tags.push(statusTag);
+      }
+
+      currentSection.items.push({
+        title: itemTitle,
+        description: finalDescription,
+        highlight,
+        growthText,
+        statusTag,
+        url,
+        tags
+      });
+    }
+  }
+
+  if (sections.length === 0 || sections.every(s => s.items.length === 0)) {
+    return null;
+  }
+
+  return { sections };
+}
+
+function IntelligenceReportView({ reportText }: { reportText: string }) {
+  const [viewMode, setViewMode] = useState<"visual" | "raw">("visual");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTag, setSelectedTag] = useState<string>("All");
+  const [bookmarkedIds, setBookmarkedIds] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const parsedData = useMemo(() => {
+    return parseReport(reportText);
+  }, [reportText]);
+
+  const finalViewMode = parsedData ? viewMode : "raw";
+
+  const allTags = useMemo(() => {
+    if (!parsedData) return [];
+    const tags = new Set<string>();
+    parsedData.sections.forEach((s) => {
+      s.items.forEach((item) => {
+        item.tags.forEach((t) => tags.add(t));
+      });
+    });
+    return ["All", ...Array.from(tags)];
+  }, [parsedData]);
+
+  const handleCopy = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const toggleBookmark = (id: string) => {
+    setBookmarkedIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  if (!parsedData) {
+    return (
+      <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-6 min-h-[360px] shadow-sm">
+        <div className="markdown-content text-sm space-y-4 font-sans">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportText}</ReactMarkdown>
+        </div>
+      </div>
+    );
+  }
+
+  const sectionsList = parsedData.sections.map((s) => ({
+    id: s.id,
+    title: s.title,
+    emoji: s.emoji
+  }));
+
+  return (
+    <div className="space-y-5 font-sans">
+      {/* Visual Control Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[var(--bg-surface)] p-4 rounded-2xl border border-[var(--border-color)] shadow-sm">
+        {/* Toggle Switch */}
+        <div className="flex bg-[var(--bg-primary)] p-1 rounded-xl border border-[var(--border-color)] text-xs font-semibold w-fit self-start sm:self-center select-none">
+          <button
+            type="button"
+            onClick={() => setViewMode("visual")}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              finalViewMode === "visual"
+                ? "bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm border border-[var(--border-color)]"
+                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Interactive Board</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("raw")}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              finalViewMode === "raw"
+                ? "bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm border border-[var(--border-color)]"
+                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Raw Report</span>
+          </button>
+        </div>
+
+        {finalViewMode === "visual" && (
+          <div className="flex items-center gap-2 flex-1 sm:justify-end max-w-md w-full">
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
+              <input
+                type="text"
+                placeholder="Search board..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)]/40 text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-all"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {finalViewMode === "raw" ? (
+        <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-6 min-h-[360px] shadow-sm">
+          <div className="markdown-content text-sm space-y-4 font-sans">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: ({ children }) => {
+                  const text = String(children || "");
+                  const id = getHeadingId(text, sectionsList);
+                  return <h1 id={id} className="text-xl font-bold mt-6 mb-3 scroll-mt-24">{children}</h1>;
+                },
+                h2: ({ children }) => {
+                  const text = String(children || "");
+                  const id = getHeadingId(text, sectionsList);
+                  return <h2 id={id} className="text-lg font-bold mt-5 mb-2 scroll-mt-24">{children}</h2>;
+                },
+                h3: ({ children }) => {
+                  const text = String(children || "");
+                  const id = getHeadingId(text, sectionsList);
+                  return <h3 id={id} className="text-base font-bold mt-4 mb-2 scroll-mt-24">{children}</h3>;
+                },
+              }}
+            >
+              {reportText}
+            </ReactMarkdown>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {/* Tag Filter Pills */}
+          {allTags.length > 2 && (
+            <div className="flex flex-wrap gap-1.5 pb-1">
+              {allTags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setSelectedTag(tag)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                    selectedTag === tag
+                      ? "bg-[var(--accent)] text-white border-[var(--accent)] shadow-sm"
+                      : "bg-[var(--bg-surface)] border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)]"
+                  }`}
+                >
+                  {tag === "All" ? "📍 All Topics" : `#${tag}`}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {parsedData.sections.map((section, secIdx) => {
+            const filteredItems = section.items.filter((item) => {
+              const matchesSearch =
+                item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.description.toLowerCase().includes(searchTerm.toLowerCase());
+              const matchesTag = selectedTag === "All" || item.tags.includes(selectedTag);
+              return matchesSearch && matchesTag;
+            });
+
+            if (filteredItems.length === 0) return null;
+
+            return (
+              <div key={secIdx} id={section.id} className="space-y-4 animate-fade-in-up scroll-mt-24">
+                {/* Section Header */}
+                <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-2">
+                  <span className="w-1.5 h-4 bg-[var(--accent)] rounded-full"></span>
+                  <h4 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider">
+                    {section.emoji} {section.title}
+                  </h4>
+                  <span className="text-[10px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-surface-hover)] px-2 py-0.5 rounded-full border border-[var(--border-color)]">
+                    {filteredItems.length}
+                  </span>
+                </div>
+
+                {/* Grid Layout of Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredItems.map((item, itemIdx) => {
+                    const itemId = `${secIdx}-${itemIdx}`;
+                    const isBookmarked = !!bookmarkedIds[itemId];
+                    const isCopied = copiedId === itemId;
+
+                    // Configure colors depending on type
+                    let borderClass = "border-l-4 border-l-purple-500 hover:border-purple-500/40";
+                    let badgeClass = "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20";
+                    
+                    if (section.title.toLowerCase().includes("market overview") || section.title.toLowerCase().includes("overview") || section.title.toLowerCase().includes("funding")) {
+                      borderClass = "border-l-4 border-l-blue-500 hover:border-blue-500/40";
+                      badgeClass = "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20";
+                    } else if (section.title.toLowerCase().includes("key players") || section.title.toLowerCase().includes("player") || section.title.toLowerCase().includes("product") || section.title.toLowerCase().includes("release")) {
+                      borderClass = "border-l-4 border-l-emerald-500 hover:border-emerald-500/40";
+                      badgeClass = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20";
+                    } else if (section.title.toLowerCase().includes("segments") || section.title.toLowerCase().includes("segment")) {
+                      borderClass = "border-l-4 border-l-amber-500 hover:border-amber-500/40";
+                      badgeClass = "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20";
+                    }
+
+                    return (
+                      <div
+                        key={itemId}
+                        className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 ${borderClass} bg-white dark:bg-zinc-950 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md`}
+                      >
+                        {/* Glowing accent border on hover */}
+                        <div
+                          className={`absolute inset-x-0 top-0 h-1 transition-all group-hover:h-1.5 bg-[var(--accent)]`}
+                        ></div>
+
+                        {/* Top Row: Entity Title and Badge Highlight */}
+                        <div className="flex justify-between items-start gap-3 mb-3">
+                          <div className="flex items-center gap-2">
+                            <h5 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">
+                              {item.title}
+                            </h5>
+                          </div>
+
+                          {item.highlight && (
+                            <span
+                              className={`text-[10px] font-bold px-2 py-1 rounded-lg border flex-shrink-0 ${badgeClass}`}
+                            >
+                              {item.highlight}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Growth Details */}
+                        {item.growthText && (
+                          <div className="text-xs text-[var(--text-secondary)] font-medium mb-2 bg-zinc-50 dark:bg-zinc-900/50 p-2 rounded-xl border border-zinc-100 dark:border-zinc-800/80">
+                            <span className="text-[var(--text-tertiary)] font-bold">Growth:</span> {item.growthText}
+                          </div>
+                        )}
+
+                        {/* Description */}
+                        <p className="text-xs text-[var(--text-secondary)] leading-relaxed flex-1 mb-4">
+                          {item.description}
+                        </p>
+
+                        {/* Bottom Row: Tags & Interactions */}
+                        <div className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] pt-3 mt-auto">
+                          {/* Tags / Status */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {item.statusTag && (
+                              <span className="text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded-lg">
+                                {item.statusTag}
+                              </span>
+                            )}
+                            {item.tags.slice(0, 2).map((tag) => (
+                              <button
+                                key={tag}
+                                type="button"
+                                onClick={() => setSelectedTag(tag)}
+                                className="text-[9px] font-semibold bg-[var(--bg-primary)] px-1.5 py-0.5 rounded border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all"
+                              >
+                                #{tag}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Action icons / sources */}
+                          <div className="flex items-center gap-2">
+                            {item.url && (
+                              <a
+                                href={item.url.startsWith("http") ? item.url : `https://${item.url}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[11px] text-blue-500 dark:text-blue-400 hover:underline font-semibold flex items-center gap-0.5 animate-fade-in"
+                              >
+                                {item.url}
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(itemId, `[${item.title}] ${item.highlight ? `(${item.highlight}) ` : ""}${item.growthText ? `[Growth: ${item.growthText}] ` : ""}${item.description}`)}
+                              className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
+                              title="Copy to clipboard"
+                            >
+                              {isCopied ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                              ) : (
+                                <Share2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleBookmark(itemId)}
+                              className={`p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] transition-all cursor-pointer ${
+                                isBookmarked ? "text-amber-500 fill-amber-500" : "text-[var(--text-tertiary)] hover:text-amber-500"
+                              }`}
+                              title="Bookmark item"
+                            >
+                              <Bookmark className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InThisReportSidebar({ sections }: { sections: ReportSectionHeader[] }) {
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+      setActiveSectionId(id);
+    }
+  };
+
+  return (
+    <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-5 space-y-4 shadow-sm text-xs animate-fade-in font-sans">
+      <div className="flex justify-between items-center border-b border-[var(--border-subtle)] pb-3">
+        <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">Sections</h4>
+        <span className="text-[10px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-surface-hover)] px-2 py-0.5 rounded-full border border-[var(--border-color)]">
+          {sections.length}/{sections.length}
+        </span>
+      </div>
+
+      <div className="space-y-1.5 max-h-[480px] overflow-y-auto pr-1 scrollbar-thin">
+        {sections.length === 0 ? (
+          <div className="text-[11px] text-[var(--text-tertiary)] text-center py-6 animate-pulse">
+            Analyzing report layout...
+          </div>
+        ) : (
+          sections.map((sec) => (
+            <button
+              key={sec.id}
+              type="button"
+              onClick={() => scrollToSection(sec.id)}
+              className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left font-semibold transition-all cursor-pointer ${
+                activeSectionId === sec.id
+                  ? "bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent)]/10"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)] border border-transparent"
+              }`}
+            >
+              <div className="flex items-center gap-2 truncate">
+                <span className="text-sm flex-shrink-0">{sec.emoji}</span>
+                <span className="truncate text-xs">{sec.title}</span>
+              </div>
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0 ml-2" strokeWidth={2.5} />
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function getSectionsFromMarkdown(text: string): ReportSectionHeader[] {
+  if (!text) return [];
+  const lines = text.split("\n");
+  const headers: ReportSectionHeader[] = [];
+  let index = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    let title = "";
+    
+    // Check if it's a standard markdown header
+    const mdHeaderMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (mdHeaderMatch) {
+      title = mdHeaderMatch[2].replace(/\*\*|_/g, "").trim();
+    } else {
+      // Check if it's a bold line that looks like a header
+      const boldHeaderMatch = trimmed.match(/^\*\*(Market Overview|Key Players|Market Segments|Recent Developments|Buyer Dynamics|Trends & Outlook|Competitive Dynamics|Next Steps|Funding Deals|Product Releases|Top News|Announcements|Latest Updates|Latest Crawled Data|News|Current Tasks)\*\*$/i);
+      if (boldHeaderMatch) {
+        title = boldHeaderMatch[1].trim();
+      }
+    }
+
+    if (title) {
+      // Determine emoji
+      let emoji = "📋";
+      const lowerTitle = title.toLowerCase();
+      if (lowerTitle.includes("market overview") || lowerTitle.includes("overview")) emoji = "📊";
+      else if (lowerTitle.includes("key players") || lowerTitle.includes("player")) emoji = "👥";
+      else if (lowerTitle.includes("segments") || lowerTitle.includes("segment")) emoji = "🧩";
+      else if (lowerTitle.includes("developments") || lowerTitle.includes("development")) emoji = "📰";
+      else if (lowerTitle.includes("buyer")) emoji = "🛍️";
+      else if (lowerTitle.includes("trends") || lowerTitle.includes("outlook")) emoji = "📈";
+      else if (lowerTitle.includes("competitive")) emoji = "⚔️";
+      else if (lowerTitle.includes("next steps") || lowerTitle.includes("next")) emoji = "🚀";
+      else if (lowerTitle.includes("funding")) emoji = "💰";
+      else if (lowerTitle.includes("product") || lowerTitle.includes("release")) emoji = "🚀";
+      else if (lowerTitle.includes("news")) emoji = "📰";
+
+      // Prevent duplicate headers
+      if (!headers.some(h => h.title.toLowerCase() === title.toLowerCase())) {
+        headers.push({
+          id: `section-${index}`,
+          title,
+          emoji
+        });
+        index++;
+      }
+    }
+  }
+  return headers;
+}
+
+function getHeadingId(title: string, sections: ReportSectionHeader[]): string | undefined {
+  const cleanTitle = title.replace(/\*\*|_/g, "").trim().toLowerCase();
+  const found = sections.find(s => s.title.toLowerCase() === cleanTitle);
+  return found?.id;
 }

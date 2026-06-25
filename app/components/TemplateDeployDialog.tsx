@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Dialog, { DialogButton } from "./Dialog";
 import { useTaskStore } from "./TaskStore";
 import { AgentTemplate } from "../lib/templateData";
-import { generateTaskId } from "../lib/taskParser";
+import { generateTaskId, cleanAgentName } from "../lib/taskParser";
 import type { Task, TaskStatus } from "../lib/taskTypes";
 import { Calendar, Play, Settings2, ShieldCheck } from "lucide-react";
 
@@ -30,7 +30,7 @@ export default function TemplateDeployDialog({
   template,
   onDeploy,
 }: TemplateDeployDialogProps) {
-  const { triggerCommand, addTask, setView } = useTaskStore();
+  const { addTask, setSelectedAgentId, syncTasks, runTask } = useTaskStore();
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [taskType, setTaskType] = useState<Task["type"]>("track");
@@ -40,7 +40,7 @@ export default function TemplateDeployDialog({
 
   useEffect(() => {
     if (template) {
-      setName(template.title);
+      setName(cleanAgentName(template.title));
       setPrompt(template.prompt);
       setTaskType(template.taskType);
       setCustomSchedule("");
@@ -73,8 +73,6 @@ export default function TemplateDeployDialog({
       return;
     }
 
-    // 1. Generate clean task
-    const taskId = generateTaskId();
     const now = Date.now();
     
     // Parse interval
@@ -84,37 +82,89 @@ export default function TemplateDeployDialog({
     else if (finalSchedule.includes("12 hours")) intervalMs = 12 * 60 * 60 * 1000;
     else if (finalSchedule === "weekly") intervalMs = 7 * 24 * 60 * 60 * 1000;
 
-    const newTask: Task = {
-      id: taskId,
-      title: name.trim(),
-      prompt: prompt.trim(),
-      type: taskType,
-      status: "active",
-      schedule: {
-        label: SCHEDULE_PRESETS.find((p) => p.value === finalSchedule)?.label || finalSchedule,
-        intervalMs,
-      },
-      target: name.trim(),
-      createdAt: now,
-      nextRunAt: now + intervalMs,
-      runCount: 0,
-      data: [],
-    };
-
-    // 2. Add locally for immediate feedback
-    addTask(newTask);
-
-    // 3. Trigger command upstream so backend creates it
-    // Format: "track 'Bitcoin Price Tracker' every 6 hours: Analyze Bitcoin..."
     const nlpCommand = `${taskType} "${name.trim()}" ${finalSchedule}: ${prompt.trim()}`;
-    triggerCommand(nlpCommand);
+    
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: nlpCommand, stream: false }),
+      });
 
-    // 4. Redirect to Dashboard & close
-    setTimeout(() => {
+      let parsedId = null;
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data.answer === "string") {
+          // Extract taskId from answer
+          const match = data.answer.match(/(?:task|created|id|agent)\s*[:\-#]?\s*\b([a-fA-F0-9]{8})\b/i);
+          if (match) {
+            parsedId = match[1];
+          } else {
+            const fallbackMatch = data.answer.match(/\b([a-fA-F0-9]{8})\b/);
+            if (fallbackMatch) {
+              parsedId = fallbackMatch[1];
+            }
+          }
+        }
+      }
+
+      const finalTaskId = parsedId || generateTaskId();
+
+      const newTask: Task = {
+        id: finalTaskId,
+        title: name.trim(),
+        prompt: prompt.trim(),
+        type: taskType,
+        status: "active",
+        schedule: {
+          label: SCHEDULE_PRESETS.find((p) => p.value === finalSchedule)?.label || finalSchedule,
+          intervalMs,
+        },
+        target: name.trim(),
+        createdAt: now,
+        nextRunAt: now + intervalMs,
+        runCount: 0,
+        data: [],
+      };
+
+      // Add task locally with the correct upstream ID
+      addTask(newTask);
+
+      // Start the task execution immediately in the background
+      runTask(finalTaskId);
+
+      // Sync tasks in background to align details
+      syncTasks();
+
       setIsDeploying(false);
-      setView("dashboard");
+      setSelectedAgentId(finalTaskId);
       onClose();
-    }, 800);
+    } catch (err) {
+      console.error("Error creating task upstream:", err);
+      // Fallback in case of network error
+      const fallbackId = generateTaskId();
+      const fallbackTask: Task = {
+        id: fallbackId,
+        title: name.trim(),
+        prompt: prompt.trim(),
+        type: taskType,
+        status: "active",
+        schedule: {
+          label: SCHEDULE_PRESETS.find((p) => p.value === finalSchedule)?.label || finalSchedule,
+          intervalMs,
+        },
+        target: name.trim(),
+        createdAt: now,
+        nextRunAt: now + intervalMs,
+        runCount: 0,
+        data: [],
+      };
+      addTask(fallbackTask);
+      runTask(fallbackId);
+      setIsDeploying(false);
+      setSelectedAgentId(fallbackId);
+      onClose();
+    }
   };
 
   return (

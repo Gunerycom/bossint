@@ -68,7 +68,7 @@ export default function LeftSidebar({
       { id: "welcome", label: "My Hub", icon: Sparkles, action: () => handleNavClick("welcome") },
       { id: "chat", label: "Research Chat", icon: Plus, action: handleNewResearch },
       { id: "explore", label: "Agent Library", icon: Compass, action: () => handleNavClick("explore") },
-      { id: "dashboard", label: "Command Center", icon: LayoutDashboard, action: () => handleNavClick("dashboard") },
+      { id: "dashboard", label: "My Agents", icon: LayoutDashboard, action: () => handleNavClick("dashboard") },
     ] as const;
 
     return (

@@ -106,7 +106,7 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
   } else if (currentView === "explore") {
     title = "Explore Presets";
   } else if (currentView === "dashboard") {
-    title = "Command Center";
+    title = "My Agents";
   } else if (currentView === "agent-detail") {
     title = "Agent Analytics";
   } else if (currentView === "settings") {
@@ -144,7 +144,7 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
 
     // 3. Match quick commands
     const allCommands = [
-      { label: "Go to Command Center (Dashboard)", action: () => router.push("/dashboard"), icon: LayoutDashboard },
+      { label: "Go to My Agents (Dashboard)", action: () => router.push("/dashboard"), icon: LayoutDashboard },
       { label: "Open Research Chat", action: () => router.push("/chat"), icon: PlusCircle },
       { label: "Browse Preset Blueprints", action: () => router.push("/explore"), icon: Compass },
       { label: "Open System Settings", action: () => router.push("/settings"), icon: SettingsIcon },
@@ -210,7 +210,7 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
             <button
               onClick={() => router.push("/dashboard")}
               className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors mr-1 flex items-center justify-center cursor-pointer"
-              title="Back to Command Center"
+              title="Back to My Agents"
             >
               <ChevronLeft className="w-5 h-5" strokeWidth={1.5} />
             </button>

@@ -18,7 +18,7 @@ export default function AgentDetailPage() {
   }, [id, setSelectedAgentId]);
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1">
       <AgentDetailView />
     </div>
   );

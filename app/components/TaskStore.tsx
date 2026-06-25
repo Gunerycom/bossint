@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Task, TaskStatus } from "../lib/taskTypes";
-import { parseUpstreamTaskList, generateTaskId } from "../lib/taskParser";
+import { parseUpstreamTaskList, generateTaskId, parseNLPCommand, parseSchedule } from "../lib/taskParser";
 import type { Message } from "./MessageBubble";
 import { TEMPLATES, type AgentTemplate } from "../lib/templateData";
 import { useRouter, usePathname } from "next/navigation";
@@ -323,6 +323,9 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState<boolean>(false);
   const [createTaskPrefills, setCreateTaskPrefills] = useState<{ title: string; prompt: string } | null>(null);
 
+  // Track deleted task IDs locally during active session to prevent race conditions during sync
+  const deletedTaskIdsRef = useRef<Set<string>>(new Set());
+
   // Template deploy controls
   const [deployTemplate, setDeployTemplate] = useState<AgentTemplate | null>(null);
   const [isDeployOpen, setIsDeployOpen] = useState(false);
@@ -457,25 +460,45 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
       if (data && typeof data.answer === "string") {
         const parsed = parseUpstreamTaskList(data.answer);
         setTasks((prev) => {
-          return parsed.map((fetched) => {
-            const local = prev.find((t) => t.id === fetched.id);
-            const now = Date.now();
-            return {
-              id: fetched.id!,
-              prompt: local?.prompt || fetched.title || `Track ${fetched.id}`,
-              title: fetched.title || local?.title || `Task ${fetched.id}`,
-              type: fetched.type || local?.type || "track",
-              status: fetched.status || local?.status || "active",
-              schedule: fetched.schedule || local?.schedule || { label: "Daily", intervalMs: 24 * 60 * 60 * 1000 },
-              target: local?.target || fetched.title || "",
-              createdAt: local?.createdAt || now,
-              lastRunAt: local?.lastRunAt,
-              nextRunAt: fetched.status === "active" ? (local?.nextRunAt || (now + (fetched.schedule?.intervalMs || 24 * 60 * 60 * 1000))) : undefined,
-              runCount: local?.runCount || 0,
-              data: local?.data || [],
-              category: local?.category || getCategoryForTask(fetched.title || `Task ${fetched.id}`, local?.prompt || fetched.title || `Track ${fetched.id}`),
-            };
+          const merged = [...prev];
+          const now = Date.now();
+
+          parsed.forEach((fetched) => {
+            if (!fetched.id || deletedTaskIdsRef.current.has(fetched.id)) {
+              return;
+            }
+
+            const index = merged.findIndex((t) => t.id === fetched.id);
+            if (index !== -1) {
+              const local = merged[index];
+              merged[index] = {
+                ...local,
+                title: fetched.title || local.title,
+                status: fetched.status || local.status,
+                schedule: fetched.schedule || local.schedule,
+                type: fetched.type || local.type,
+                nextRunAt: fetched.status === "active"
+                  ? (local.nextRunAt || (now + (fetched.schedule?.intervalMs || 24 * 60 * 60 * 1000)))
+                  : undefined,
+              };
+            } else {
+              merged.push({
+                id: fetched.id,
+                prompt: fetched.title || `Track ${fetched.id}`,
+                title: fetched.title || `Task ${fetched.id}`,
+                type: fetched.type || "track",
+                status: fetched.status || "active",
+                schedule: fetched.schedule || { label: "Daily", intervalMs: 24 * 60 * 60 * 1000 },
+                target: fetched.title || "",
+                createdAt: now,
+                runCount: 0,
+                data: [],
+                category: getCategoryForTask(fetched.title || `Task ${fetched.id}`, fetched.title || `Track ${fetched.id}`),
+              });
+            }
           });
+
+          return merged;
         });
       }
     } catch (err) {
@@ -494,6 +517,38 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   const sendMessage = useCallback(async (customText?: string, targetConvId?: string | null) => {
     const text = (customText || input).trim();
     if (!text || isStreaming) return;
+
+    // Process NLP command locally in parallel to prevent UI lag/desync
+    try {
+      const parsedCmd = parseNLPCommand(text);
+      if (parsedCmd.type === "delete_task" && parsedCmd.taskId) {
+        const tid = parsedCmd.taskId;
+        setTasks((prev) => prev.filter((t) => t.id !== tid));
+        deletedTaskIdsRef.current.add(tid);
+      } else if (parsedCmd.type === "pause_task" && parsedCmd.taskId) {
+        const tid = parsedCmd.taskId;
+        setTasks((prev) => prev.map((t) => t.id === tid ? { ...t, status: "paused" } : t));
+      } else if (parsedCmd.type === "resume_task" && parsedCmd.taskId) {
+        const tid = parsedCmd.taskId;
+        setTasks((prev) => prev.map((t) => t.id === tid ? { ...t, status: "active" } : t));
+      } else if (parsedCmd.type === "clear_data" && parsedCmd.taskId) {
+        const tid = parsedCmd.taskId;
+        setTasks((prev) => prev.map((t) => t.id === tid ? { ...t, data: [], runCount: 0 } : t));
+      } else if (parsedCmd.type === "edit_schedule" && parsedCmd.taskId && parsedCmd.params?.schedule) {
+        const tid = parsedCmd.taskId;
+        const scheduleParsed = parseSchedule(parsedCmd.params.schedule);
+        setTasks((prev) => prev.map((t) => t.id === tid ? {
+          ...t,
+          schedule: {
+            label: scheduleParsed.label,
+            intervalMs: scheduleParsed.intervalMs,
+            time: scheduleParsed.time,
+          }
+        } : t));
+      }
+    } catch (e) {
+      console.error("Error handling command locally:", e);
+    }
 
     let convId = targetConvId || activeConversationId;
     if (!convId) {
@@ -863,7 +918,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
             {
               id: "notif-welcome",
               type: "system",
-              title: "Welcome to Bossint Command Center",
+              title: "Welcome to Bossint My Agents",
               message: "Get started by exploring agent blueprints or creating a custom agent in chat. Know everything. Before everyone.",
               timestamp: now - 3600 * 1000 * 2, // 2 hours ago
               read: false,
@@ -955,42 +1010,87 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setTaskStatus = useCallback((taskId: string, status: TaskStatus) => {
-    if (status === "paused") {
-      triggerCommand(`pause task ${taskId}`);
-    } else if (status === "active") {
-      triggerCommand(`resume task ${taskId}`);
-    }
-  }, [triggerCommand]);
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status } : t))
+    );
+    const cmd = status === "paused" ? `pause task ${taskId}` : `resume task ${taskId}`;
+    fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: cmd, stream: false }),
+    })
+      .then(() => syncTasks())
+      .catch((err) => console.error("Error setting task status upstream:", err));
+  }, [syncTasks]);
 
   const deleteTask = useCallback((taskId: string) => {
-    triggerCommand(`delete task ${taskId}`);
-  }, [triggerCommand]);
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    deletedTaskIdsRef.current.add(taskId);
+    fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: `delete task ${taskId}`, stream: false }),
+    })
+      .then(() => syncTasks())
+      .catch((err) => console.error("Error deleting task upstream:", err));
+  }, [syncTasks]);
 
   const clearTaskData = useCallback((taskId: string) => {
-    triggerCommand(`clear data for task ${taskId}`);
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, data: [], runCount: 0 } : t))
     );
-  }, [triggerCommand]);
+    fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: `clear data for task ${taskId}`, stream: false }),
+    })
+      .then(() => syncTasks())
+      .catch((err) => console.error("Error clearing task data upstream:", err));
+  }, [syncTasks]);
 
   const updateSchedule = useCallback((taskId: string, scheduleLabel: string) => {
-    triggerCommand(`change schedule of task ${taskId} to ${scheduleLabel}`);
-  }, [triggerCommand]);
+    fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: `change schedule of task ${taskId} to ${scheduleLabel}`, stream: false }),
+    })
+      .then(() => syncTasks())
+      .catch((err) => console.error("Error updating schedule upstream:", err));
+  }, [syncTasks]);
 
   const updateTaskDetails = useCallback((taskId: string, details: Partial<Task>) => {
-    if (details.schedule?.label) {
-      triggerCommand(`change schedule of task ${taskId} to ${details.schedule.label}`);
-    }
-    if (details.title) {
-      triggerCommand(`rename task ${taskId} to "${details.title}"`);
-    }
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, ...details } : t))
     );
-  }, [triggerCommand]);
+
+    const promises = [];
+    if (details.schedule?.label) {
+      promises.push(
+        fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: `change schedule of task ${taskId} to ${details.schedule.label}`, stream: false }),
+        })
+      );
+    }
+    if (details.title) {
+      promises.push(
+        fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: `rename task ${taskId} to "${details.title}"`, stream: false }),
+        })
+      );
+    }
+
+    if (promises.length > 0) {
+      Promise.all(promises)
+        .then(() => syncTasks())
+        .catch((err) => console.error("Error updating task details upstream:", err));
+    }
+  }, [syncTasks]);
 
   const runTask = useCallback((taskId: string) => {
-    triggerCommand(`run task ${taskId} now`);
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id !== taskId) return t;
@@ -998,16 +1098,8 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         const newEntry = {
           id: `data-${now}`,
           timestamp: now,
-          summary: `Task run triggered via NLP Command • ${new Date(now).toLocaleTimeString()}`,
+          summary: `Task run triggered silently • ${new Date(now).toLocaleTimeString()}`,
         };
-
-        addNotification({
-          agentId: taskId,
-          agentName: t.title,
-          type: "info",
-          title: `${t.title} • Executed`,
-          message: `Intelligence scan completed at ${new Date(now).toLocaleTimeString()}. 0 issues detected.`,
-        });
 
         return {
           ...t,
@@ -1018,7 +1110,43 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         };
       })
     );
-  }, [triggerCommand, addNotification]);
+
+    fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: `run task ${taskId} now`, stream: false }),
+    })
+      .then((res) => res.json())
+      .then(() => {
+        syncTasks();
+        
+        // Add a notification when complete
+        setTasks((prev) => {
+          const matched = prev.find(t => t.id === taskId);
+          if (matched) {
+            addNotification({
+              agentId: taskId,
+              agentName: matched.title,
+              type: "info",
+              title: `${matched.title} • Scan Complete`,
+              message: `Intelligence scan completed at ${new Date().toLocaleTimeString()}. 0 issues detected.`,
+            });
+            return prev.map((t) =>
+              t.id === taskId ? { ...t, status: "active" as TaskStatus } : t
+            );
+          }
+          return prev;
+        });
+      })
+      .catch((err) => {
+        console.error("Error running task upstream:", err);
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === taskId ? { ...t, status: "error" as TaskStatus } : t
+          )
+        );
+      });
+  }, [syncTasks, addNotification]);
 
   const processCommand = useCallback(
     (input: string): string => {

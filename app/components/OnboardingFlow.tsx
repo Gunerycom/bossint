@@ -249,7 +249,7 @@ export default function OnboardingFlow() {
                 }}
                 className="px-6 py-3 rounded-xl bg-[var(--accent)] text-white text-xs font-bold hover:bg-[var(--accent-hover)] transition-all cursor-pointer shadow-md inline-flex items-center gap-1.5"
               >
-                <span>Enter Command Center</span>
+                <span>Enter My Agents</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

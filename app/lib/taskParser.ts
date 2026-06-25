@@ -12,7 +12,7 @@ export function generateTaskId(): string {
 /**
  * Parse schedule text into interval milliseconds and a label
  */
-function parseSchedule(text: string): { intervalMs: number; label: string; time?: string } {
+export function parseSchedule(text: string): { intervalMs: number; label: string; time?: string } {
   const lower = text.toLowerCase();
 
   // "daily at 9am", "daily at 09:00"
@@ -99,8 +99,9 @@ function detectTaskType(text: string): Task["type"] {
  * Generate a short title from the prompt
  */
 function generateTitle(text: string): string {
+  const cleaned = cleanAgentName(text);
   // Remove schedule parts
-  let title = text
+  let title = cleaned
     .replace(/daily\s+at\s+\d{1,2}(:\d{2})?\s*(am|pm)?/gi, "")
     .replace(/every\s+\d+\s*(hours?|hrs?|minutes?|mins?|days?|seconds?|secs?)/gi, "")
     .replace(/every\s+hour/gi, "")
@@ -314,7 +315,7 @@ export function parseUpstreamTaskList(text: string): Partial<Task>[] {
       else if (statusWord === "completed" || statusWord === "done") status = "completed";
       
       currentTask.status = status;
-      currentTask.title = title || "Task " + currentTask.id;
+      currentTask.title = cleanAgentName(title) || "Task " + currentTask.id;
       
       // Determine type from title/description keywords
       let type: Task["type"] = "track";
@@ -332,5 +333,42 @@ export function parseUpstreamTaskList(text: string): Partial<Task>[] {
   }
   
   return tasks;
+}
+
+/**
+ * Extract clean agent name, stripping crawl/track verbs, quotes, and colons
+ */
+export function cleanAgentName(name: string): string {
+  if (!name) return name;
+  let clean = name.trim();
+  
+  // Match patterns like: crawl "Name": prompt OR track 'Name': prompt OR monitor Name: prompt
+  const quotedMatch = clean.match(/^(?:crawl|track|monitor|watch|scrape|fetch|run|crawling|tracking|monitoring)\s+["']([^"']+)["']/i);
+  if (quotedMatch) {
+    return quotedMatch[1].trim();
+  }
+  
+  const colonMatch = clean.match(/^(?:crawl|track|monitor|watch|scrape|fetch|run|crawling|tracking|monitoring)\s+([^:]+):/i);
+  if (colonMatch) {
+    return colonMatch[1].trim();
+  }
+
+  const justQuotedMatch = clean.match(/^["']([^"']+)["']/i);
+  if (justQuotedMatch) {
+    return justQuotedMatch[1].trim();
+  }
+
+  // Strip leading verbs
+  clean = clean.replace(/^(?:crawl|track|monitor|watch|scrape|fetch|run|crawling|tracking|monitoring)\s+/i, "");
+
+  if (clean.includes(":")) {
+    const parts = clean.split(":");
+    const before = parts[0].trim();
+    if (before.length > 0 && before.length < 40) {
+      return before;
+    }
+  }
+
+  return clean;
 }
 
