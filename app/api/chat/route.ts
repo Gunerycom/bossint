@@ -60,10 +60,20 @@ export async function POST(request: NextRequest) {
     followup: followup ?? !!session_id,
   };
 
+  const authHeader = request.headers.get("Authorization");
+  const apiKeyHeader = request.headers.get("X-API-KEY");
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (authHeader) {
+    headers["Authorization"] = authHeader;
+  }
+  if (apiKeyHeader) {
+    headers["X-API-KEY"] = apiKeyHeader;
+  }
+
   try {
     const upstreamResponse = await fetch(upstreamUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(upstreamPayload),
     });
 

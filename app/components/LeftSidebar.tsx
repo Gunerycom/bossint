@@ -54,7 +54,7 @@ export default function LeftSidebar({
     setIsMobileOpen(false);
   };
 
-  const handleNavClick = (view: "welcome" | "explore" | "dashboard" | "settings") => {
+  const handleNavClick = (view: "welcome" | "hub" | "explore" | "dashboard" | "settings") => {
     if (view === "welcome") {
       router.push("/");
     } else {
@@ -65,7 +65,8 @@ export default function LeftSidebar({
 
   const renderNavItems = () => {
     const items = [
-      { id: "welcome", label: "My Hub", icon: Sparkles, action: () => handleNavClick("welcome") },
+      { id: "welcome", label: "Create Agent", icon: Sparkles, action: () => handleNavClick("welcome") },
+      { id: "hub", label: "My Hub", icon: Cpu, action: () => handleNavClick("hub") },
       { id: "chat", label: "Research Chat", icon: Plus, action: handleNewResearch },
       { id: "explore", label: "Agent Library", icon: Compass, action: () => handleNavClick("explore") },
       { id: "dashboard", label: "My Agents", icon: LayoutDashboard, action: () => handleNavClick("dashboard") },
@@ -313,6 +314,7 @@ export default function LeftSidebar({
               onClick={() => {
                 localStorage.removeItem("bossint_auth");
                 localStorage.removeItem("bossint_user_email");
+                localStorage.removeItem("bossint_user_token");
                 window.dispatchEvent(new Event("bossint_auth_change"));
               }}
               className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-500/10 cursor-pointer"

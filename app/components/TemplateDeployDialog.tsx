@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Dialog, { DialogButton } from "./Dialog";
-import { useTaskStore } from "./TaskStore";
+import { useTaskStore, labelToCron } from "./TaskStore";
 import { AgentTemplate } from "../lib/templateData";
 import { generateTaskId, cleanAgentName } from "../lib/taskParser";
 import type { Task, TaskStatus } from "../lib/taskTypes";
@@ -82,12 +82,64 @@ export default function TemplateDeployDialog({
     else if (finalSchedule.includes("12 hours")) intervalMs = 12 * 60 * 60 * 1000;
     else if (finalSchedule === "weekly") intervalMs = 7 * 24 * 60 * 60 * 1000;
 
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (token) {
+      try {
+        const cronExpr = labelToCron(finalSchedule);
+        const res = await fetch("/api/agents", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            prompt: prompt.trim(),
+            schedule: cronExpr,
+            schedule_label: finalSchedule,
+            max_items: taskType === "crawl" ? 10 : 5,
+          })
+        });
+
+        if (res.ok) {
+          const newAgent = await res.json();
+          const newTask: Task = {
+            id: newAgent.id,
+            title: name.trim(),
+            prompt: prompt.trim(),
+            type: taskType,
+            status: "active",
+            schedule: {
+              label: SCHEDULE_PRESETS.find((p) => p.value === finalSchedule)?.label || finalSchedule,
+              intervalMs,
+            },
+            target: name.trim(),
+            createdAt: now,
+            nextRunAt: now + intervalMs,
+            runCount: 0,
+            data: [],
+          };
+          addTask(newTask);
+          runTask(newAgent.id);
+          syncTasks();
+          setIsDeploying(false);
+          setSelectedAgentId(newAgent.id);
+          onClose();
+          return;
+        }
+      } catch (err) {
+        console.error("Direct API deploy failed, falling back to chat NLP:", err);
+      }
+    }
+
     const nlpCommand = `${taskType} "${name.trim()}" ${finalSchedule}: ${prompt.trim()}`;
     
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ message: nlpCommand, stream: false }),
       });
 

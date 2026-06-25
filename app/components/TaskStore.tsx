@@ -114,8 +114,8 @@ interface TaskStoreContextValue {
   registerTriggerCommand: (callback: (cmd: string) => void) => void;
 
   // New views and conversation management
-  currentView: "welcome" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings";
-  setView: (view: "welcome" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings") => void;
+  currentView: "welcome" | "hub" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings";
+  setView: (view: "welcome" | "hub" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings") => void;
   activeConversationId: string | null;
   setActiveConversationId: (id: string | null) => void;
   conversations: Conversation[];
@@ -154,6 +154,11 @@ interface TaskStoreContextValue {
   isStreaming: boolean;
   sendMessage: (customText?: string, targetConvId?: string | null) => Promise<void>;
   stopStreaming: () => void;
+
+  // Real production profile and stats
+  userProfile: any;
+  userStats: any;
+  fetchProfileAndStats: () => Promise<void>;
 }
 
 const TaskStoreContext = createContext<TaskStoreContextValue>({
@@ -209,10 +214,42 @@ const TaskStoreContext = createContext<TaskStoreContextValue>({
   isStreaming: false,
   sendMessage: async () => {},
   stopStreaming: () => {},
+  userProfile: null,
+  userStats: null,
+  fetchProfileAndStats: async () => {},
 });
 
 export function useTaskStore() {
   return useContext(TaskStoreContext);
+}
+
+export function labelToCron(label: string): string {
+  const clean = label.toLowerCase().trim();
+  if (clean.includes("1 hour") || clean === "hourly" || clean === "every hour") return "0 * * * *";
+  if (clean.includes("6 hour") || clean.includes("every 6 hours")) return "0 */6 * * *";
+  if (clean.includes("12 hour") || clean.includes("every 12 hours")) return "0 */12 * * *";
+  if (clean.includes("daily") || clean.includes("day")) return "0 0 * * *";
+  if (clean.includes("weekly") || clean.includes("week")) return "0 0 * * 0";
+  return "0 0 * * *"; // default daily
+}
+
+export function cronToIntervalMs(cron: string): number {
+  if (!cron) return 24 * 60 * 60 * 1000;
+  const parts = cron.split(" ");
+  if (parts[1]?.startsWith("*/")) {
+    const hours = parseInt(parts[1].slice(2), 10);
+    if (!isNaN(hours)) return hours * 60 * 60 * 1000;
+  }
+  if (parts[0]?.startsWith("*/")) {
+    const mins = parseInt(parts[0].slice(2), 10);
+    if (!isNaN(mins)) return mins * 60 * 1000;
+  }
+  if (cron === "0 * * * *") return 60 * 60 * 1000;
+  if (cron === "0 */6 * * *") return 6 * 60 * 60 * 1000;
+  if (cron === "0 */12 * * *") return 12 * 60 * 60 * 1000;
+  if (cron === "0 0 * * *") return 24 * 60 * 60 * 1000;
+  if (cron === "0 0 * * 0") return 7 * 24 * 60 * 60 * 1000;
+  return 24 * 60 * 60 * 1000;
 }
 
 function loadTasks(): Task[] {
@@ -312,7 +349,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   // New views and conversations state
-  const [currentView, setViewOnly] = useState<"welcome" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings">("welcome");
+  const [currentView, setViewOnly] = useState<"welcome" | "hub" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings">("welcome");
   const [activeConversationId, setActiveConversationIdOnly] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedAgentId, setSelectedAgentIdOnly] = useState<string | null>(null);
@@ -335,6 +372,36 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
 
+  // Real production profile and stats
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userStats, setUserStats] = useState<any>(null);
+
+  const fetchProfileAndStats = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    const token = localStorage.getItem("bossint_user_token");
+    if (!token) return;
+
+    try {
+      const headers = { "Authorization": `Bearer ${token}` };
+
+      // Fetch Profile
+      const meRes = await fetch("/api/auth/me", { headers });
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        setUserProfile(meData);
+      }
+
+      // Fetch Stats
+      const statsRes = await fetch("/api/stats", { headers });
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setUserStats(statsData);
+      }
+    } catch (err) {
+      console.error("Error fetching profile and stats:", err);
+    }
+  }, []);
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const thinkingStartRef = useRef<number | null>(null);
 
@@ -342,6 +409,8 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (pathname === "/") {
       setViewOnly("welcome");
+    } else if (pathname === "/hub") {
+      setViewOnly("hub");
     } else if (pathname === "/explore") {
       setViewOnly("explore");
     } else if (pathname === "/dashboard") {
@@ -361,9 +430,10 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [pathname]);
 
-  const setView = useCallback((view: "welcome" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings") => {
+  const setView = useCallback((view: "welcome" | "hub" | "chat" | "explore" | "dashboard" | "agent-detail" | "settings") => {
     setViewOnly(view);
     if (view === "welcome" && pathname !== "/") router.push("/");
+    else if (view === "hub" && pathname !== "/hub") router.push("/hub");
     else if (view === "explore" && pathname !== "/explore") router.push("/explore");
     else if (view === "dashboard" && pathname !== "/dashboard") router.push("/dashboard");
     else if (view === "settings" && pathname !== "/settings") router.push("/settings");
@@ -449,10 +519,63 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const syncTasks = useCallback(async () => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (token) {
+      try {
+        const res = await fetch("/api/agents", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.agents)) {
+            const now = Date.now();
+            const mapped: Task[] = data.agents
+              .filter((agent: any) => !deletedTaskIdsRef.current.has(agent.id))
+              .map((agent: any) => {
+                const status: TaskStatus = !agent.is_active
+                  ? "paused"
+                  : agent.last_run_status === "running"
+                  ? "running"
+                  : agent.last_run_status === "failed"
+                  ? "error"
+                  : "active";
+
+                return {
+                  id: agent.id,
+                  prompt: agent.prompt,
+                  title: agent.prompt.length > 40 ? agent.prompt.slice(0, 40) + "..." : agent.prompt,
+                  type: agent.prompt.toLowerCase().includes("crawl") ? "crawl" : "track",
+                  status,
+                  schedule: {
+                    label: agent.schedule_label || "Daily",
+                    intervalMs: cronToIntervalMs(agent.schedule),
+                  },
+                  target: agent.prompt,
+                  createdAt: agent.created_at ? new Date(agent.created_at).getTime() : now,
+                  lastRunAt: agent.last_run_at ? new Date(agent.last_run_at).getTime() : undefined,
+                  nextRunAt: agent.next_run_at ? new Date(agent.next_run_at).getTime() : undefined,
+                  runCount: agent.has_data ? 1 : 0,
+                  data: [], // Filled when showing detailed view
+                  category: getCategoryForTask(agent.prompt, agent.prompt),
+                };
+              });
+
+            setTasks(mapped);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Error syncing tasks via /api/agents, falling back:", err);
+      }
+    }
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ message: "list tasks", stream: false }),
       });
       if (!res.ok) return;
@@ -502,7 +625,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch (err) {
-      console.error("Error syncing tasks:", err);
+      console.error("Fallback task sync failed:", err);
     }
   }, []);
 
@@ -600,10 +723,16 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     let taskMsg = "";
     let finalMessagesList = updatedInitialMessages;
 
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           message: text,
           session_id: convId, // Pass actual conversation ID
@@ -893,7 +1022,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         const storedView = localStorage.getItem("bossint-current-view");
         if (storedView) {
           const view = storedView as any;
-          if (["welcome", "chat", "explore", "dashboard", "agent-detail", "settings"].includes(view)) {
+          if (["welcome", "hub", "chat", "explore", "dashboard", "agent-detail", "settings"].includes(view)) {
             setView(view);
           }
         }
@@ -960,7 +1089,33 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     
     setMounted(true);
     syncTasks();
-  }, [syncTasks]);
+    fetchProfileAndStats();
+  }, [syncTasks, fetchProfileAndStats]);
+
+  // Listen for login/logout events to sync profile and tasks
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleAuthChange = () => {
+      const token = localStorage.getItem("bossint_user_token");
+      if (token) {
+        syncTasks();
+        fetchProfileAndStats();
+      } else {
+        setUserProfile(null);
+        setUserStats(null);
+        setTasks([]);
+      }
+    };
+
+    window.addEventListener("bossint_auth_change", handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
+
+    return () => {
+      window.removeEventListener("bossint_auth_change", handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
+    };
+  }, [syncTasks, fetchProfileAndStats]);
 
   // Persist to localStorage on every change
   useEffect(() => {
@@ -1007,12 +1162,52 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
       category: task.category || getCategoryForTask(task.title, task.prompt),
     };
     setTasks((prev) => [taskWithCategory, ...prev]);
-  }, []);
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (token) {
+      const cron = labelToCron(task.schedule.label);
+      fetch("/api/agents", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          prompt: task.prompt,
+          schedule: cron,
+          schedule_label: task.schedule.label,
+          max_items: task.type === "crawl" ? 10 : 5,
+        })
+      })
+      .then(res => {
+        if (res.ok) {
+          syncTasks();
+          fetchProfileAndStats();
+        }
+      })
+      .catch(err => console.error("Error adding task via REST API:", err));
+    }
+  }, [syncTasks, fetchProfileAndStats]);
 
   const setTaskStatus = useCallback((taskId: string, status: TaskStatus) => {
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, status } : t))
     );
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (token) {
+      fetch(`/api/agents/${taskId}/toggle`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+        .then(() => {
+          syncTasks();
+          fetchProfileAndStats();
+        })
+        .catch((err) => console.error("Error toggling task status upstream:", err));
+      return;
+    }
+
     const cmd = status === "paused" ? `pause task ${taskId}` : `resume task ${taskId}`;
     fetch("/api/chat", {
       method: "POST",
@@ -1021,11 +1216,26 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     })
       .then(() => syncTasks())
       .catch((err) => console.error("Error setting task status upstream:", err));
-  }, [syncTasks]);
+  }, [syncTasks, fetchProfileAndStats]);
 
   const deleteTask = useCallback((taskId: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
     deletedTaskIdsRef.current.add(taskId);
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (token) {
+      fetch(`/api/agents/${taskId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+        .then(() => {
+          syncTasks();
+          fetchProfileAndStats();
+        })
+        .catch((err) => console.error("Error deleting task upstream:", err));
+      return;
+    }
+
     fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1033,12 +1243,27 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     })
       .then(() => syncTasks())
       .catch((err) => console.error("Error deleting task upstream:", err));
-  }, [syncTasks]);
+  }, [syncTasks, fetchProfileAndStats]);
 
   const clearTaskData = useCallback((taskId: string) => {
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, data: [], runCount: 0 } : t))
     );
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (token) {
+      fetch(`/api/agents/${taskId}/data`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+        .then(() => {
+          syncTasks();
+          fetchProfileAndStats();
+        })
+        .catch((err) => console.error("Error clearing task data upstream:", err));
+      return;
+    }
+
     fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1046,9 +1271,28 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     })
       .then(() => syncTasks())
       .catch((err) => console.error("Error clearing task data upstream:", err));
-  }, [syncTasks]);
+  }, [syncTasks, fetchProfileAndStats]);
 
   const updateSchedule = useCallback((taskId: string, scheduleLabel: string) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (token) {
+      const cron = labelToCron(scheduleLabel);
+      fetch(`/api/agents/${taskId}/schedule`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          schedule: cron,
+          schedule_label: scheduleLabel
+        })
+      })
+        .then(() => syncTasks())
+        .catch((err) => console.error("Error updating schedule upstream:", err));
+      return;
+    }
+
     fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1062,6 +1306,27 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, ...details } : t))
     );
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (token) {
+      const cron = details.schedule?.label ? labelToCron(details.schedule.label) : undefined;
+      const bodyPayload: Record<string, any> = {};
+      if (details.prompt) bodyPayload.prompt = details.prompt;
+      if (cron) bodyPayload.schedule = cron;
+      if (details.schedule?.label) bodyPayload.schedule_label = details.schedule.label;
+
+      fetch(`/api/agents/${taskId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(bodyPayload)
+      })
+        .then(() => syncTasks())
+        .catch((err) => console.error("Error updating task details upstream:", err));
+      return;
+    }
 
     const promises = [];
     if (details.schedule?.label) {
@@ -1105,11 +1370,27 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
           ...t,
           status: "running" as TaskStatus,
           lastRunAt: now,
-          runCount: t.runCount + 1,
+          runCount: (t.runCount || 0) + 1,
           data: [newEntry, ...t.data].slice(0, 50),
         };
       })
     );
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (token) {
+      fetch(`/api/agents/${taskId}/run`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+        .then(() => {
+          setTimeout(() => {
+            syncTasks();
+            fetchProfileAndStats();
+          }, 1500);
+        })
+        .catch((err) => console.error("Error triggering run upstream:", err));
+      return;
+    }
 
     fetch("/api/chat", {
       method: "POST",
@@ -1146,7 +1427,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
           )
         );
       });
-  }, [syncTasks, addNotification]);
+  }, [syncTasks, addNotification, fetchProfileAndStats]);
 
   const processCommand = useCallback(
     (input: string): string => {
@@ -1220,6 +1501,9 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         isStreaming,
         sendMessage,
         stopStreaming,
+        userProfile,
+        userStats,
+        fetchProfileAndStats,
       }}
     >
       {children}

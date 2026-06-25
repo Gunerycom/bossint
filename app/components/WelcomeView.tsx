@@ -211,11 +211,19 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
     setActiveConversationId,
     setTaskStatus,
     deleteTask,
-    updateTaskDetails
+    updateTaskDetails,
+    userProfile
   } = useTaskStore();
 
   const [greeting, setGreeting] = useState("Good morning");
-  const [userName, setUserName] = useState("Gökhan");
+
+  const userName = useMemo(() => {
+    if (userProfile && userProfile.email) {
+      const parts = userProfile.email.split("@");
+      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    }
+    return "Gökhan";
+  }, [userProfile]);
 
   // Search Chat Bot input
   const [chatbotInput, setChatbotInput] = useState("");

@@ -98,23 +98,90 @@ export default function AgentDetailView() {
     setIsLoadingReport(true);
     setLatestReport(null);
 
-    fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: `show task ${task.id}`, stream: false }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (active && data && data.answer) {
-          setLatestReport(data.answer);
-        }
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (token) {
+      fetch(`/api/agents/${task.id}/all`, {
+        headers: { "Authorization": `Bearer ${token}` }
       })
-      .catch((err) => {
-        console.error("Error fetching agent report:", err);
+        .then((res) => {
+          if (!res.ok) throw new Error("API call failed");
+          return res.json();
+        })
+        .then((data) => {
+          if (!active) return;
+          
+          if (data) {
+            // Set latest report
+            if (data.latest_data) {
+              if (typeof data.latest_data === "string") {
+                setLatestReport(data.latest_data);
+              } else {
+                setLatestReport("### Latest Extracted Data\n\n```json\n" + JSON.stringify(data.latest_data, null, 2) + "\n```");
+              }
+            } else {
+              setLatestReport(null);
+            }
+
+            // Sync history to TaskStore
+            if (Array.isArray(data.history)) {
+              const mappedHistory = data.history.map((h: any) => ({
+                id: h.id,
+                timestamp: h.run_at ? new Date(h.run_at).getTime() : Date.now(),
+                summary: h.data 
+                  ? (typeof h.data === "string" ? h.data : JSON.stringify(h.data, null, 2))
+                  : "Scan completed successfully."
+              }));
+              updateTaskDetails(task.id, {
+                data: mappedHistory,
+                runCount: data.history.length
+              });
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("Error fetching agent report via REST, trying fallback:", err);
+          // Fallback to chat command
+          if (active) {
+            fetch("/api/chat", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+              },
+              body: JSON.stringify({ message: `show task ${task.id}`, stream: false }),
+            })
+              .then((res) => res.json())
+              .then((data) => {
+                if (active && data && data.answer) {
+                  setLatestReport(data.answer);
+                }
+              })
+              .catch((chatErr) => console.error("Fallback chat report fetch failed:", chatErr));
+          }
+        })
+        .finally(() => {
+          if (active) setIsLoadingReport(false);
+        });
+    } else {
+      // Local demo fallback
+      fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: `show task ${task.id}`, stream: false }),
       })
-      .finally(() => {
-        if (active) setIsLoadingReport(false);
-      });
+        .then((res) => res.json())
+        .then((data) => {
+          if (active && data && data.answer) {
+            setLatestReport(data.answer);
+          }
+        })
+        .catch((err) => {
+          console.error("Error fetching agent report:", err);
+        })
+        .finally(() => {
+          if (active) setIsLoadingReport(false);
+        });
+    }
 
     return () => {
       active = false;

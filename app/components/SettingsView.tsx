@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTaskStore } from "./TaskStore";
 import { 
   User, 
@@ -20,10 +20,10 @@ import {
 } from "lucide-react";
 
 export default function SettingsView() {
-  const { tasks } = useTaskStore();
+  const { tasks, userProfile, userStats } = useTaskStore();
   const [activeSubTab, setActiveSubTab] = useState<"profile" | "notifications" | "api" | "billing">("profile");
 
-  // Mock Form States
+  // Form States
   const [name, setName] = useState("Gökhan Günery");
   const [email, setEmail] = useState("gokhan@gunery.com");
   const [avatar, setAvatar] = useState("GG");
@@ -40,6 +40,27 @@ export default function SettingsView() {
   ]);
   const [newKeyName, setNewKeyName] = useState("");
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+
+  // Sync API info and form from loaded userProfile
+  useEffect(() => {
+    if (userProfile) {
+      setEmail(userProfile.email || "gokhan@gunery.com");
+      const namePart = userProfile.email ? userProfile.email.split("@")[0] : "Gökhan Günery";
+      setName(namePart.charAt(0).toUpperCase() + namePart.slice(1));
+      setAvatar(namePart.slice(0, 2).toUpperCase());
+
+      if (userProfile.api_key) {
+        setApiKeys([
+          {
+            id: "saas-key",
+            name: "SaaS Production API Key",
+            key: userProfile.api_key,
+            created: userProfile.created_at ? new Date(userProfile.created_at).toISOString().split("T")[0] : "Active"
+          }
+        ]);
+      }
+    }
+  }, [userProfile]);
 
   // Stats for billing
   const totalScans = tasks.reduce((sum, t) => sum + (t.runCount || 0), 0);
@@ -350,16 +371,20 @@ export default function SettingsView() {
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <span className="inline-flex px-2 py-0.5 text-[9px] font-extrabold uppercase bg-indigo-500/10 text-[var(--accent)] rounded border border-indigo-500/20">
-                      Sandbox Free Demo
+                      {userProfile ? `${userProfile.role || "User"} Account` : "Sandbox Free Demo"}
                     </span>
-                    <h4 className="text-sm font-extrabold">Local Autopilot Account</h4>
+                    <h4 className="text-sm font-extrabold">{userProfile ? "Production SaaS Profile" : "Local Autopilot Account"}</h4>
                     <p className="text-[10px] text-[var(--text-secondary)] max-w-sm leading-relaxed">
-                      Your local-only demo profile uses simulated localStorage memory storage limits.
+                      {userProfile 
+                        ? `Connected with email ${userProfile.email || "unknown"}. Under active role and limits.` 
+                        : "Your local-only demo profile uses simulated localStorage memory storage limits."}
                     </p>
                   </div>
-                  <button className="px-3.5 py-1.5 text-xs font-extrabold rounded-xl bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] cursor-pointer transition-all shadow shadow-indigo-500/20">
-                    Upgrade Account
-                  </button>
+                  {!userProfile && (
+                    <button className="px-3.5 py-1.5 text-xs font-extrabold rounded-xl bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] cursor-pointer transition-all shadow shadow-indigo-500/20">
+                      Upgrade Account
+                    </button>
+                  )}
                 </div>
 
                 {/* Scopes & Status Bars */}
@@ -367,22 +392,46 @@ export default function SettingsView() {
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-center text-[10px] font-semibold text-[var(--text-secondary)]">
                       <span>Active Scheduled Agents</span>
-                      <span>{activeCount} / 10 agents</span>
+                      <span>{activeCount} active agents</span>
                     </div>
                     <div className="w-full bg-[var(--bg-primary)] h-1.5 rounded-full overflow-hidden border border-[var(--border-color)]">
-                      <div className="h-full bg-[var(--accent)]" style={{ width: `${(activeCount / 10) * 100}%` }} />
+                      <div className="h-full bg-[var(--accent)]" style={{ width: `${Math.min((activeCount / 10) * 100, 100)}%` }} />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center text-[10px] font-semibold text-[var(--text-secondary)]">
-                      <span>Total Data Scan Runs</span>
-                      <span>{totalScans} / 100 scans</span>
+                  {userProfile ? (
+                    <>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-[10px] font-semibold text-[var(--text-secondary)]">
+                          <span>Input Tokens Consumed</span>
+                          <span>{(userProfile.input_tokens_used || 0).toLocaleString()} / {(userProfile.input_token_limit || 0).toLocaleString()} tokens</span>
+                        </div>
+                        <div className="w-full bg-[var(--bg-primary)] h-1.5 rounded-full overflow-hidden border border-[var(--border-color)]">
+                          <div className="h-full bg-emerald-500" style={{ width: `${Math.min(((userProfile.input_tokens_used || 0) / (userProfile.input_token_limit || 1)) * 100, 100)}%` }} />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-[10px] font-semibold text-[var(--text-secondary)]">
+                          <span>Output Tokens Consumed</span>
+                          <span>{(userProfile.output_tokens_used || 0).toLocaleString()} / {(userProfile.output_token_limit || 0).toLocaleString()} tokens</span>
+                        </div>
+                        <div className="w-full bg-[var(--bg-primary)] h-1.5 rounded-full overflow-hidden border border-[var(--border-color)]">
+                          <div className="h-full bg-indigo-500" style={{ width: `${Math.min(((userProfile.output_tokens_used || 0) / (userProfile.output_token_limit || 1)) * 100, 100)}%` }} />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center text-[10px] font-semibold text-[var(--text-secondary)]">
+                        <span>Total Data Scan Runs</span>
+                        <span>{totalScans} / 100 scans</span>
+                      </div>
+                      <div className="w-full bg-[var(--bg-primary)] h-1.5 rounded-full overflow-hidden border border-[var(--border-color)]">
+                        <div className="h-full bg-indigo-500" style={{ width: `${(totalScans / 100) * 100}%` }} />
+                      </div>
                     </div>
-                    <div className="w-full bg-[var(--bg-primary)] h-1.5 rounded-full overflow-hidden border border-[var(--border-color)]">
-                      <div className="h-full bg-indigo-500" style={{ width: `${(totalScans / 100) * 100}%` }} />
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 

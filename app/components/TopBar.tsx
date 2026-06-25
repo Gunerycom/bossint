@@ -53,6 +53,7 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
     setSelectedAgentId,
     setIsCreateTaskOpen,
     setCreateTaskPrefills,
+    userProfile,
   } = useTaskStore();
   const router = useRouter();
 
@@ -67,6 +68,24 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const emailToDisplay = userProfile?.email || userEmail || "guest@bossint.com";
+  const nameToDisplay = useMemo(() => {
+    if (userProfile?.email) {
+      const parts = userProfile.email.split("@");
+      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    }
+    if (userEmail) {
+      const parts = userEmail.split("@");
+      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    }
+    return "Guest User";
+  }, [userProfile, userEmail]);
+  
+  const initialsToDisplay = useMemo(() => {
+    if (nameToDisplay === "Guest User") return "GU";
+    return nameToDisplay.slice(0, 2).toUpperCase();
+  }, [nameToDisplay]);
 
   // Keyboard shortcut listener for Ctrl/Cmd + K
   useEffect(() => {
@@ -83,6 +102,7 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
   const handleLogout = () => {
     localStorage.removeItem("bossint_auth");
     localStorage.removeItem("bossint_user_email");
+    localStorage.removeItem("bossint_user_token");
     window.dispatchEvent(new Event("bossint_auth_change"));
   };
 
@@ -293,17 +313,17 @@ export default function TopBar({ setIsMobileOpen }: TopBarProps) {
               className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer text-xs font-medium outline-none"
             >
               <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-[10px] shadow-sm">
-                {userEmail === "gokhan@gunery.com" ? "GG" : "GU"}
+                {initialsToDisplay}
               </div>
               <span className="hidden sm:inline text-[var(--text-primary)]">
-                {userEmail === "gokhan@gunery.com" ? "Gökhan Günery" : "Guest User"}
+                {nameToDisplay}
               </span>
             </button>
 
             {showDropdown && (
               <div className="absolute right-0 mt-1 w-48 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-lg shadow-lg py-1 z-50 animate-dialog-in text-xs">
                 <div className="px-3 py-2 border-b border-[var(--border-color)] text-[var(--text-tertiary)] truncate">
-                  {userEmail || "guest@bossint.com"}
+                  {emailToDisplay}
                 </div>
                 <button
                   onClick={() => {

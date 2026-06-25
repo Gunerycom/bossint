@@ -1,10 +1,10 @@
 "use client";
 
-import CreateAgentView from "./components/CreateAgentView";
-import { useTaskStore } from "./components/TaskStore";
+import WelcomeView from "../components/WelcomeView";
+import { useTaskStore } from "../components/TaskStore";
 import { useRouter } from "next/navigation";
 
-export default function Home() {
+export default function HubPage() {
   const { setInput, sendMessage, setDeployTemplate, setIsDeployOpen } = useTaskStore();
   const router = useRouter();
 
@@ -24,7 +24,7 @@ export default function Home() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <CreateAgentView
+      <WelcomeView
         onPromptFill={handlePromptFill}
         onPromptSubmit={handlePromptSubmit}
         onDeployClick={handleDeployClick}

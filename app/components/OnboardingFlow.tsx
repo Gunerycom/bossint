@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTaskStore } from "./TaskStore";
 import { generateTaskId } from "../lib/taskParser";
 import type { Task, TaskStatus } from "../lib/taskTypes";
@@ -92,9 +92,17 @@ const STARTER_AGENTS: StarterAgent[] = [
 ];
 
 export default function OnboardingFlow() {
-  const { addTask, completeOnboarding, setView, triggerCommand } = useTaskStore();
+  const { addTask, completeOnboarding, setView, triggerCommand, userProfile } = useTaskStore();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [deployedName, setDeployedName] = useState("");
+
+  const userName = useMemo(() => {
+    if (userProfile && userProfile.email) {
+      const parts = userProfile.email.split("@");
+      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    }
+    return "Gökhan";
+  }, [userProfile]);
 
   const handlePickStarter = (agent: StarterAgent) => {
     const taskId = generateTaskId();
@@ -157,7 +165,7 @@ export default function OnboardingFlow() {
               <Sparkles className="w-8 h-8 animate-pulse" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-extrabold tracking-tight">Welcome to Bossint, Gökhan.</h2>
+              <h2 className="text-2xl font-extrabold tracking-tight">Welcome to Bossint, {userName}.</h2>
               <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
                 Your next-generation intelligence autopilot is active. Let's deploy your first background monitoring agent to start collecting insights.
               </p>
