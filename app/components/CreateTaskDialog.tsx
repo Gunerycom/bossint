@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Dialog, { DialogButton } from "./Dialog";
 import { useTaskStore } from "./TaskStore";
-import { buildTaskFromCommand } from "../lib/taskParser";
+import { buildTaskFromCommand, parseNLPCommand, generateTaskId, parseSchedule } from "../lib/taskParser";
 import type { Task } from "../lib/taskTypes";
 import {
   Sparkles,
@@ -34,7 +34,7 @@ const SCHEDULE_PRESETS = [
 
 
 export default function CreateTaskDialog({ isOpen, onClose }: CreateTaskDialogProps) {
-  const { triggerCommand, openSidebar, setView, createTaskPrefills } = useTaskStore();
+  const { addTask, openSidebar, setView, createTaskPrefills } = useTaskStore();
   const [mode, setMode] = useState<"nlp" | "form">("nlp");
   const [nlpInput, setNlpInput] = useState("");
   const [title, setTitle] = useState("");
@@ -71,7 +71,35 @@ export default function CreateTaskDialog({ isOpen, onClose }: CreateTaskDialogPr
 
   const handleNlpCreate = () => {
     if (!nlpInput.trim()) return;
-    triggerCommand(nlpInput.trim());
+    const parsed = parseNLPCommand(nlpInput.trim());
+    let newTask: Task;
+    if (parsed.type === "create_task") {
+      newTask = buildTaskFromCommand(parsed);
+      newTask.prompt = nlpInput.trim();
+    } else {
+      const id = generateTaskId();
+      const now = Date.now();
+      const scheduleParsed = parseSchedule("daily");
+      const titleText = nlpInput.trim().slice(0, 40) + (nlpInput.trim().length > 40 ? "..." : "");
+      newTask = {
+        id,
+        prompt: nlpInput.trim(),
+        title: titleText,
+        type: nlpInput.toLowerCase().includes("crawl") ? "crawl" : "track",
+        status: "active",
+        schedule: {
+          label: scheduleParsed.label,
+          intervalMs: scheduleParsed.intervalMs,
+          time: scheduleParsed.time,
+        },
+        target: nlpInput.trim(),
+        createdAt: now,
+        nextRunAt: now + scheduleParsed.intervalMs,
+        runCount: 0,
+        data: [],
+      };
+    }
+    addTask(newTask);
     setView("dashboard");
     handleClose();
   };
@@ -83,7 +111,29 @@ export default function CreateTaskDialog({ isOpen, onClose }: CreateTaskDialogPr
     const targetPart = target.trim() ? ` ${target.trim()}` : "";
     const prompt = `track ${title.trim()}${targetPart} ${scheduleStr}`;
     
-    triggerCommand(prompt);
+    const id = generateTaskId();
+    const now = Date.now();
+    const scheduleParsed = parseSchedule(scheduleStr);
+    
+    const newTask: Task = {
+      id,
+      prompt,
+      title: title.trim(),
+      type: prompt.toLowerCase().includes("crawl") ? "crawl" : "track",
+      status: "active",
+      schedule: {
+        label: scheduleParsed.label,
+        intervalMs: scheduleParsed.intervalMs,
+        time: scheduleParsed.time,
+      },
+      target: target.trim() || title.trim(),
+      createdAt: now,
+      nextRunAt: now + scheduleParsed.intervalMs,
+      runCount: 0,
+      data: [],
+    };
+    
+    addTask(newTask);
     setView("dashboard");
     handleClose();
   };

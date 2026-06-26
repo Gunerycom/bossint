@@ -5,7 +5,7 @@ import { useTaskStore } from "./components/TaskStore";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
-  const { setInput, sendMessage, setDeployTemplate, setIsDeployOpen } = useTaskStore();
+  const { setInput, setDeployTemplate, setDeployCustomPrompt, setIsDeployOpen } = useTaskStore();
   const router = useRouter();
 
   const handlePromptFill = (text: string) => {
@@ -14,11 +14,14 @@ export default function Home() {
   };
 
   const handlePromptSubmit = (text: string) => {
-    sendMessage(text);
+    setDeployTemplate(null);
+    setDeployCustomPrompt(text);
+    setIsDeployOpen(true);
   };
 
   const handleDeployClick = (template: any) => {
     setDeployTemplate(template);
+    setDeployCustomPrompt("");
     setIsDeployOpen(true);
   };
 

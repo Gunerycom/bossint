@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: "/api/health",
+        destination: "https://lab.bossint.ai/api/health",
+      },
+      {
         source: "/api/auth/:path*",
         destination: "https://lab.bossint.ai/api/auth/:path*",
       },
@@ -22,6 +26,22 @@ const nextConfig: NextConfig = {
       {
         source: "/api/settings",
         destination: "https://lab.bossint.ai/api/settings",
+      },
+      {
+        source: "/api/chatlogs",
+        destination: "https://lab.bossint.ai/api/chatlogs",
+      },
+      {
+        source: "/api/generate-schema",
+        destination: "https://lab.bossint.ai/api/generate-schema",
+      },
+      {
+        source: "/api/stop-all",
+        destination: "https://lab.bossint.ai/api/stop-all",
+      },
+      {
+        source: "/api/downloads/:path*",
+        destination: "https://lab.bossint.ai/api/downloads/:path*",
       },
       {
         source: "/api/users/:path*",

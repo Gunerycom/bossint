@@ -98,6 +98,12 @@ interface TaskStoreContextValue {
   updateTaskDetails: (taskId: string, details: Partial<Task>) => void;
   /** Simulate running a task (adds a mock data entry) */
   runTask: (taskId: string) => void;
+  /** Stop a running agent */
+  stopTask: (taskId: string) => void;
+  /** Stop all running agents */
+  stopAllAgents: () => void;
+  /** Delete a specific history entry */
+  deleteHistoryEntry: (agentId: string, resultId: string) => void;
   /** Whether the sidebar is open */
   isSidebarOpen: boolean;
   /** Toggle sidebar */
@@ -145,6 +151,8 @@ interface TaskStoreContextValue {
   setDeployTemplate: (template: AgentTemplate | null) => void;
   isDeployOpen: boolean;
   setIsDeployOpen: (open: boolean) => void;
+  deployCustomPrompt: string;
+  setDeployCustomPrompt: (prompt: string) => void;
 
   // Global Chat state and actions
   messages: Message[];
@@ -171,6 +179,9 @@ const TaskStoreContext = createContext<TaskStoreContextValue>({
   updateSchedule: () => {},
   updateTaskDetails: () => {},
   runTask: () => {},
+  stopTask: () => {},
+  stopAllAgents: () => {},
+  deleteHistoryEntry: () => {},
   isSidebarOpen: false,
   toggleSidebar: () => {},
   openSidebar: () => {},
@@ -207,6 +218,8 @@ const TaskStoreContext = createContext<TaskStoreContextValue>({
   setDeployTemplate: () => {},
   isDeployOpen: false,
   setIsDeployOpen: () => {},
+  deployCustomPrompt: "",
+  setDeployCustomPrompt: () => {},
   messages: [],
   setMessages: () => {},
   input: "",
@@ -366,6 +379,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   // Template deploy controls
   const [deployTemplate, setDeployTemplate] = useState<AgentTemplate | null>(null);
   const [isDeployOpen, setIsDeployOpen] = useState(false);
+  const [deployCustomPrompt, setDeployCustomPrompt] = useState("");
 
   // Global Chat state and actions
   const [messages, setMessages] = useState<Message[]>([]);
@@ -386,6 +400,18 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
 
       // Fetch Profile
       const meRes = await fetch("/api/auth/me", { headers });
+      if (meRes.status === 401 || meRes.status === 403) {
+        // Token is invalid/expired — force re-login
+        console.warn("Auth token rejected (401). Clearing session.");
+        localStorage.removeItem("bossint_auth");
+        localStorage.removeItem("bossint_user_token");
+        localStorage.removeItem("bossint_user_email");
+        setUserProfile(null);
+        setUserStats(null);
+        setTasks([]);
+        window.dispatchEvent(new Event("bossint_auth_change"));
+        return;
+      }
       if (meRes.ok) {
         const meData = await meRes.json();
         setUserProfile(meData);
@@ -520,112 +546,56 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
 
   const syncTasks = useCallback(async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
-    if (token) {
-      try {
-        const res = await fetch("/api/agents", {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && Array.isArray(data.agents)) {
-            const now = Date.now();
-            const mapped: Task[] = data.agents
-              .filter((agent: any) => !deletedTaskIdsRef.current.has(agent.id))
-              .map((agent: any) => {
-                const status: TaskStatus = !agent.is_active
-                  ? "paused"
-                  : agent.last_run_status === "running"
-                  ? "running"
-                  : agent.last_run_status === "failed"
-                  ? "error"
-                  : "active";
-
-                return {
-                  id: agent.id,
-                  prompt: agent.prompt,
-                  title: agent.prompt.length > 40 ? agent.prompt.slice(0, 40) + "..." : agent.prompt,
-                  type: agent.prompt.toLowerCase().includes("crawl") ? "crawl" : "track",
-                  status,
-                  schedule: {
-                    label: agent.schedule_label || "Daily",
-                    intervalMs: cronToIntervalMs(agent.schedule),
-                  },
-                  target: agent.prompt,
-                  createdAt: agent.created_at ? new Date(agent.created_at).getTime() : now,
-                  lastRunAt: agent.last_run_at ? new Date(agent.last_run_at).getTime() : undefined,
-                  nextRunAt: agent.next_run_at ? new Date(agent.next_run_at).getTime() : undefined,
-                  runCount: agent.has_data ? 1 : 0,
-                  data: [], // Filled when showing detailed view
-                  category: getCategoryForTask(agent.prompt, agent.prompt),
-                };
-              });
-
-            setTasks(mapped);
-            return;
-          }
-        }
-      } catch (err) {
-        console.error("Error syncing tasks via /api/agents, falling back:", err);
-      }
-    }
-
+    if (!token) return;
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ message: "list tasks", stream: false }),
+      const res = await fetch("/api/agents", {
+        headers: { "Authorization": `Bearer ${token}` }
       });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data && typeof data.answer === "string") {
-        const parsed = parseUpstreamTaskList(data.answer);
-        setTasks((prev) => {
-          const merged = [...prev];
+      if (res.status === 401 || res.status === 403) {
+        // Token invalid — don't crash, just skip sync
+        console.warn("Agents sync: auth rejected (401). Skipping.");
+        return;
+      }
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.agents)) {
           const now = Date.now();
+          const mapped: Task[] = data.agents
+            .filter((agent: any) => !deletedTaskIdsRef.current.has(agent.id))
+            .map((agent: any) => {
+              const status: TaskStatus = !agent.is_active
+                ? "paused"
+                : agent.last_run_status === "running"
+                ? "running"
+                : agent.last_run_status === "failed"
+                ? "error"
+                : "active";
 
-          parsed.forEach((fetched) => {
-            if (!fetched.id || deletedTaskIdsRef.current.has(fetched.id)) {
-              return;
-            }
-
-            const index = merged.findIndex((t) => t.id === fetched.id);
-            if (index !== -1) {
-              const local = merged[index];
-              merged[index] = {
-                ...local,
-                title: fetched.title || local.title,
-                status: fetched.status || local.status,
-                schedule: fetched.schedule || local.schedule,
-                type: fetched.type || local.type,
-                nextRunAt: fetched.status === "active"
-                  ? (local.nextRunAt || (now + (fetched.schedule?.intervalMs || 24 * 60 * 60 * 1000)))
-                  : undefined,
+              return {
+                id: agent.id,
+                prompt: agent.prompt,
+                title: agent.prompt.length > 40 ? agent.prompt.slice(0, 40) + "..." : agent.prompt,
+                type: agent.prompt.toLowerCase().includes("crawl") ? "crawl" : "track",
+                status,
+                schedule: {
+                  label: agent.schedule_label || "Daily",
+                  intervalMs: cronToIntervalMs(agent.schedule),
+                },
+                target: agent.prompt,
+                createdAt: agent.created_at ? new Date(agent.created_at).getTime() : now,
+                lastRunAt: agent.last_run_at ? new Date(agent.last_run_at).getTime() : undefined,
+                nextRunAt: agent.next_run_at ? new Date(agent.next_run_at).getTime() : undefined,
+                runCount: agent.has_data ? 1 : 0,
+                data: [], // Filled when showing detailed view
+                category: getCategoryForTask(agent.prompt, agent.prompt),
               };
-            } else {
-              merged.push({
-                id: fetched.id,
-                prompt: fetched.title || `Track ${fetched.id}`,
-                title: fetched.title || `Task ${fetched.id}`,
-                type: fetched.type || "track",
-                status: fetched.status || "active",
-                schedule: fetched.schedule || { label: "Daily", intervalMs: 24 * 60 * 60 * 1000 },
-                target: fetched.title || "",
-                createdAt: now,
-                runCount: 0,
-                data: [],
-                category: getCategoryForTask(fetched.title || `Task ${fetched.id}`, fetched.title || `Track ${fetched.id}`),
-              });
-            }
-          });
+            });
 
-          return merged;
-        });
+          setTasks(mapped);
+        }
       }
     } catch (err) {
-      console.error("Fallback task sync failed:", err);
+      console.error("Error syncing tasks via /api/agents:", err);
     }
   }, []);
 
@@ -1015,17 +985,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         if (storedConvs) {
           setConversations(JSON.parse(storedConvs));
         }
-        const storedActiveConv = localStorage.getItem("bossint-active-conv");
-        if (storedActiveConv) {
-          setActiveConversationId(storedActiveConv);
-        }
-        const storedView = localStorage.getItem("bossint-current-view");
-        if (storedView) {
-          const view = storedView as any;
-          if (["welcome", "hub", "chat", "explore", "dashboard", "agent-detail", "settings"].includes(view)) {
-            setView(view);
-          }
-        }
+
 
         // Load onboarding state
         const storedOnboarding = localStorage.getItem("bossint-onboarding-completed");
@@ -1177,6 +1137,8 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
           schedule: cron,
           schedule_label: task.schedule.label,
           max_items: task.type === "crawl" ? 10 : 5,
+          language: "English",
+          data_schema: "",
         })
       })
       .then(res => {
@@ -1195,27 +1157,20 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     );
 
     const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
-    if (token) {
-      fetch(`/api/agents/${taskId}/toggle`, {
-        method: "PATCH",
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-        .then(() => {
-          syncTasks();
-          fetchProfileAndStats();
-        })
-        .catch((err) => console.error("Error toggling task status upstream:", err));
+    if (!token) {
+      console.error("Authentication token is missing. Cannot toggle task status.");
       return;
     }
 
-    const cmd = status === "paused" ? `pause task ${taskId}` : `resume task ${taskId}`;
-    fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: cmd, stream: false }),
+    fetch(`/api/agents/${taskId}/toggle`, {
+      method: "PATCH",
+      headers: { "Authorization": `Bearer ${token}` }
     })
-      .then(() => syncTasks())
-      .catch((err) => console.error("Error setting task status upstream:", err));
+      .then(() => {
+        syncTasks();
+        fetchProfileAndStats();
+      })
+      .catch((err) => console.error("Error toggling task status upstream:", err));
   }, [syncTasks, fetchProfileAndStats]);
 
   const deleteTask = useCallback((taskId: string) => {
@@ -1223,25 +1178,19 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     deletedTaskIdsRef.current.add(taskId);
 
     const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
-    if (token) {
-      fetch(`/api/agents/${taskId}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-        .then(() => {
-          syncTasks();
-          fetchProfileAndStats();
-        })
-        .catch((err) => console.error("Error deleting task upstream:", err));
+    if (!token) {
+      console.error("Authentication token is missing. Cannot delete task.");
       return;
     }
 
-    fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: `delete task ${taskId}`, stream: false }),
+    fetch(`/api/agents/${taskId}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${token}` }
     })
-      .then(() => syncTasks())
+      .then(() => {
+        syncTasks();
+        fetchProfileAndStats();
+      })
       .catch((err) => console.error("Error deleting task upstream:", err));
   }, [syncTasks, fetchProfileAndStats]);
 
@@ -1251,52 +1200,40 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     );
 
     const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
-    if (token) {
-      fetch(`/api/agents/${taskId}/data`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-        .then(() => {
-          syncTasks();
-          fetchProfileAndStats();
-        })
-        .catch((err) => console.error("Error clearing task data upstream:", err));
+    if (!token) {
+      console.error("Authentication token is missing. Cannot clear task data.");
       return;
     }
 
-    fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: `clear data for task ${taskId}`, stream: false }),
+    fetch(`/api/agents/${taskId}/data`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${token}` }
     })
-      .then(() => syncTasks())
+      .then(() => {
+        syncTasks();
+        fetchProfileAndStats();
+      })
       .catch((err) => console.error("Error clearing task data upstream:", err));
   }, [syncTasks, fetchProfileAndStats]);
 
   const updateSchedule = useCallback((taskId: string, scheduleLabel: string) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
-    if (token) {
-      const cron = labelToCron(scheduleLabel);
-      fetch(`/api/agents/${taskId}/schedule`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          schedule: cron,
-          schedule_label: scheduleLabel
-        })
-      })
-        .then(() => syncTasks())
-        .catch((err) => console.error("Error updating schedule upstream:", err));
+    if (!token) {
+      console.error("Authentication token is missing. Cannot update task schedule.");
       return;
     }
 
-    fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: `change schedule of task ${taskId} to ${scheduleLabel}`, stream: false }),
+    const cron = labelToCron(scheduleLabel);
+    fetch(`/api/agents/${taskId}/schedule`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        schedule: cron,
+        schedule_label: scheduleLabel
+      })
     })
       .then(() => syncTasks())
       .catch((err) => console.error("Error updating schedule upstream:", err));
@@ -1308,51 +1245,27 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     );
 
     const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
-    if (token) {
-      const cron = details.schedule?.label ? labelToCron(details.schedule.label) : undefined;
-      const bodyPayload: Record<string, any> = {};
-      if (details.prompt) bodyPayload.prompt = details.prompt;
-      if (cron) bodyPayload.schedule = cron;
-      if (details.schedule?.label) bodyPayload.schedule_label = details.schedule.label;
-
-      fetch(`/api/agents/${taskId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(bodyPayload)
-      })
-        .then(() => syncTasks())
-        .catch((err) => console.error("Error updating task details upstream:", err));
+    if (!token) {
+      console.error("Authentication token is missing. Cannot update task details.");
       return;
     }
 
-    const promises = [];
-    if (details.schedule?.label) {
-      promises.push(
-        fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: `change schedule of task ${taskId} to ${details.schedule.label}`, stream: false }),
-        })
-      );
-    }
-    if (details.title) {
-      promises.push(
-        fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: `rename task ${taskId} to "${details.title}"`, stream: false }),
-        })
-      );
-    }
+    const cron = details.schedule?.label ? labelToCron(details.schedule.label) : undefined;
+    const bodyPayload: Record<string, any> = {};
+    if (details.prompt) bodyPayload.prompt = details.prompt;
+    if (cron) bodyPayload.schedule = cron;
+    if (details.schedule?.label) bodyPayload.schedule_label = details.schedule.label;
 
-    if (promises.length > 0) {
-      Promise.all(promises)
-        .then(() => syncTasks())
-        .catch((err) => console.error("Error updating task details upstream:", err));
-    }
+    fetch(`/api/agents/${taskId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify(bodyPayload)
+    })
+      .then(() => syncTasks())
+      .catch((err) => console.error("Error updating task details upstream:", err));
   }, [syncTasks]);
 
   const runTask = useCallback((taskId: string) => {
@@ -1377,57 +1290,86 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
     );
 
     const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
-    if (token) {
-      fetch(`/api/agents/${taskId}/run`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-        .then(() => {
-          setTimeout(() => {
-            syncTasks();
-            fetchProfileAndStats();
-          }, 1500);
-        })
-        .catch((err) => console.error("Error triggering run upstream:", err));
+    if (!token) {
+      console.error("Authentication token is missing. Cannot run task.");
       return;
     }
 
-    fetch("/api/chat", {
+    fetch(`/api/agents/${taskId}/run`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: `run task ${taskId} now`, stream: false }),
+      headers: { "Authorization": `Bearer ${token}` }
     })
-      .then((res) => res.json())
       .then(() => {
-        syncTasks();
-        
-        // Add a notification when complete
-        setTasks((prev) => {
-          const matched = prev.find(t => t.id === taskId);
-          if (matched) {
-            addNotification({
-              agentId: taskId,
-              agentName: matched.title,
-              type: "info",
-              title: `${matched.title} • Scan Complete`,
-              message: `Intelligence scan completed at ${new Date().toLocaleTimeString()}. 0 issues detected.`,
-            });
-            return prev.map((t) =>
-              t.id === taskId ? { ...t, status: "active" as TaskStatus } : t
-            );
-          }
-          return prev;
-        });
+        setTimeout(() => {
+          syncTasks();
+          fetchProfileAndStats();
+        }, 1500);
       })
-      .catch((err) => {
-        console.error("Error running task upstream:", err);
-        setTasks((prev) =>
-          prev.map((t) =>
-            t.id === taskId ? { ...t, status: "error" as TaskStatus } : t
-          )
-        );
-      });
-  }, [syncTasks, addNotification, fetchProfileAndStats]);
+      .catch((err) => console.error("Error triggering run upstream:", err));
+  }, [syncTasks, fetchProfileAndStats]);
+
+  const stopTask = useCallback((taskId: string) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: "active" as TaskStatus } : t))
+    );
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (!token) {
+      console.error("Authentication token is missing. Cannot stop task.");
+      return;
+    }
+
+    fetch(`/api/agents/${taskId}/stop`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}` }
+    })
+      .then(() => {
+        setTimeout(() => {
+          syncTasks();
+          fetchProfileAndStats();
+        }, 1500);
+      })
+      .catch((err) => console.error("Error stopping task upstream:", err));
+  }, [syncTasks, fetchProfileAndStats]);
+
+  const stopAllAgents = useCallback(() => {
+    setTasks((prev) =>
+      prev.map((t) => t.status === "running" ? { ...t, status: "active" as TaskStatus } : t)
+    );
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (!token) {
+      console.error("Authentication token is missing. Cannot stop all agents.");
+      return;
+    }
+
+    fetch("/api/stop-all", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}` }
+    })
+      .then(() => {
+        setTimeout(() => {
+          syncTasks();
+          fetchProfileAndStats();
+        }, 1500);
+      })
+      .catch((err) => console.error("Error stopping all agents:", err));
+  }, [syncTasks, fetchProfileAndStats]);
+
+  const deleteHistoryEntry = useCallback((agentId: string, resultId: string) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (!token) {
+      console.error("Authentication token is missing. Cannot delete history entry.");
+      return;
+    }
+
+    fetch(`/api/agents/${agentId}/history/${resultId}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${token}` }
+    })
+      .then(() => syncTasks())
+      .catch((err) => console.error("Error deleting history entry:", err));
+  }, [syncTasks]);
 
   const processCommand = useCallback(
     (input: string): string => {
@@ -1460,6 +1402,9 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         updateSchedule,
         updateTaskDetails,
         runTask,
+        stopTask,
+        stopAllAgents,
+        deleteHistoryEntry,
         isSidebarOpen,
         toggleSidebar,
         openSidebar,
@@ -1494,6 +1439,8 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         setDeployTemplate,
         isDeployOpen,
         setIsDeployOpen,
+        deployCustomPrompt,
+        setDeployCustomPrompt,
         messages,
         setMessages,
         input,

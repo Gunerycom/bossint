@@ -1,19 +1,22 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { 
   Search, 
   Sparkles, 
   Play, 
   Plus, 
   ArrowRight, 
-  SlidersHorizontal, 
-  Upload, 
-  FolderPlus, 
   ChevronDown,
-  ArrowDown
+  ArrowDown,
+  Calendar,
+  Bell,
+  Mic,
+  Check
 } from "lucide-react";
+import * as Icons from "lucide-react";
 import { TEMPLATES, TEMPLATE_CATEGORIES, AgentTemplate } from "../lib/templateData";
+import TemplateCard from "./TemplateCard";
 
 // Define the 6 featured character-style agents
 interface FeaturedAgent {
@@ -121,25 +124,6 @@ const FEATURED_AGENTS: FeaturedAgent[] = [
       taskType: "monitor",
       tags: ["cybersecurity", "threat-intel", "vulnerability"],
     }
-  },
-  {
-    id: "chronicler",
-    title: "The Chronicler",
-    description: "Condensed wire news. Reuters & Bloomberg. Global market summaries.",
-    schedule: "RUNS EVERY 6 HOURS",
-    area: "News & Media",
-    coverImage: "/cover-chronicler.png",
-    template: {
-      id: "news-breaking-headlines",
-      categoryId: "news",
-      subcategoryId: "breaking",
-      title: "Global Headlines Digest",
-      description: "Consolidate breaking global news from Reuters, AP, and Bloomberg feeds.",
-      prompt: "Scrape frontpage headlines from Reuters and AP News. Summarize key developments in international relations, regional events, and economy.",
-      schedule: "every 6 hours",
-      taskType: "crawl",
-      tags: ["news", "global", "headlines"],
-    }
   }
 ];
 
@@ -158,13 +142,88 @@ export default function CreateAgentView({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
 
+  // Dynamic Lucide icon helper
+  const CategoryIcon = ({ name, className }: { name: string; className?: string }) => {
+    const IconComponent = (Icons as any)[name] || Icons.HelpCircle;
+    return <IconComponent className={className} strokeWidth={1.5} />;
+  };
+
+  // Category counts for categories index grid
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    TEMPLATES.forEach((t) => {
+      counts[t.categoryId] = (counts[t.categoryId] || 0) + 1;
+    });
+    return counts;
+  }, []);
+
   // Prompt input state
   const [customPrompt, setCustomPrompt] = useState("");
-  const [selectedModel, setSelectedModel] = useState("Bossint-v2");
-  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
 
-  // List of models matching theme styling
-  const MODELS = ["Bossint-v2", "Gemini 3.5 Flash", "Nano Banana 2", "GPT-4o Mini"];
+  // Pulse animation state (activates 2 seconds after mount to draw attention to the prompt area)
+  const [shouldPulse, setShouldPulse] = useState(false);
+  const hasInteractedRef = useRef(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!hasInteractedRef.current) {
+        setShouldPulse(true);
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleFocus = () => {
+    hasInteractedRef.current = true;
+    setShouldPulse(false);
+  };
+
+  // Schedule and Delivery states
+  const [activePanel, setActivePanel] = useState<"schedule" | "delivery" | null>(null);
+  const [schedulePreset, setSchedulePreset] = useState("daily");
+  const [customSchedule, setCustomSchedule] = useState("Every Monday at 9 am");
+  
+  // Delivery channel states
+  const [deliveryChannels, setDeliveryChannels] = useState<{ [key: string]: boolean }>({
+    dashboard: true,
+    email: false,
+    telegram: false,
+    webhook: false,
+  });
+
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState("");
+
+  const handleVoiceRecord = () => {
+    if (isRecording) {
+      setIsRecording(false);
+      setVoiceStatus("");
+      return;
+    }
+    
+    setIsRecording(true);
+    setVoiceStatus("Listening...");
+    
+    // Simulate audio typing/speech-to-text
+    setTimeout(() => {
+      setIsRecording(false);
+      setVoiceStatus("Transcribed!");
+      setCustomPrompt("Track competitor pricing adjustments and daily updates, then alert via email.");
+      setTimeout(() => setVoiceStatus(""), 2000);
+    }, 2500);
+  };
+
+  const handleDeliveryToggle = (key: string) => {
+    setDeliveryChannels((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const togglePanel = (panel: "schedule" | "delivery") => {
+    setActivePanel((prev) => (prev === panel ? null : panel));
+  };
 
   // Filter templates for search/explore more section
   const filteredTemplates = useMemo(() => {
@@ -188,199 +247,389 @@ export default function CreateAgentView({
     setCustomPrompt("");
   };
 
+
+
   return (
-    <div className="min-h-full bg-black text-white py-12 px-6 space-y-12 select-none relative overflow-y-auto">
+    <div className="min-h-full bg-[var(--bg-primary)] text-[var(--text-primary)] select-none relative overflow-y-auto">
+      <style>{`
+        @keyframes neon-pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(0, 210, 255, 0), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+            border-color: var(--border-color) !important;
+          }
+          25% {
+            box-shadow: 0 0 14px 3px rgba(0, 210, 255, 0.5), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+            border-color: rgba(0, 210, 255, 0.8) !important;
+          }
+          50% {
+            box-shadow: 0 0 24px 6px rgba(0, 210, 255, 0.85), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+            border-color: rgba(0, 210, 255, 1) !important;
+          }
+          75% {
+            box-shadow: 0 0 14px 3px rgba(0, 210, 255, 0.5), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+            border-color: rgba(0, 210, 255, 0.8) !important;
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(0, 210, 255, 0), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+            border-color: var(--border-color) !important;
+          }
+        }
+
+        .animate-neon-pulse {
+          animation: neon-pulse 2.2s ease-in-out infinite !important;
+          transition: none !important;
+        }
+      `}</style>
       
-      {/* 1. Centered Header - same size and gray color for both lines */}
-      <div className="text-center max-w-4xl mx-auto space-y-1.5 pt-4">
-        <h1 className="text-xl sm:text-2xl font-normal text-[#8e8e93] leading-snug font-sans">
-          Create your agent or deploy ready agents.
-        </h1>
-        <p className="text-xl sm:text-2xl font-normal text-[#8e8e93] leading-snug">
-          Take sample prompt from them, or create from scratch.
-        </p>
-      </div>
+      {/* 1. Main Dashboard Viewport Section */}
+      <div className="min-h-[calc(100vh-65px)] flex flex-col justify-between py-6 px-8 max-w-6xl mx-auto gap-y-6">
+        
+        {/* Header */}
+        <div className="text-center space-y-1.5 pt-2">
+          <h1 className="text-xl sm:text-2xl font-normal text-[var(--text-tertiary)] leading-snug font-sans">
+            Create your agent or deploy ready agents.
+          </h1>
+          <p className="text-xl sm:text-2xl font-normal text-[var(--text-tertiary)] leading-snug font-sans">
+            Take sample prompt from them, or create from scratch.
+          </p>
+        </div>
 
-      {/* 2. Grid of 6 Character-style cards with optimized look */}
-      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {FEATURED_AGENTS.map((agent) => (
-          <div
-            key={agent.id}
-            className="bg-[#121213] border border-[#222] hover:border-neutral-600 rounded-[24px] p-5 flex flex-col justify-between gap-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg group"
-          >
-            <div className="flex items-start gap-4">
-              {/* Left: Avatar artwork in rounded square frame */}
-              <div className="w-[84px] h-[84px] rounded-[18px] overflow-hidden bg-neutral-900 border border-[#2d2d30] shrink-0 flex items-center justify-center">
-                <img
-                  src={agent.coverImage}
-                  alt={agent.title}
-                  className="w-full h-full object-cover select-none pointer-events-none transition-transform duration-500 group-hover:scale-105"
-                />
-              </div>
-              
-              {/* Right: Text layout */}
-              <div className="flex-1 space-y-1 min-w-0">
-                <span className="text-[10px] font-bold text-[#8e8e93] tracking-wider uppercase truncate block">
-                  {agent.area}
-                </span>
-                <h3 className="text-base font-bold text-white tracking-wide truncate group-hover:text-[var(--accent)] transition-colors">
-                  {agent.title}
-                </h3>
-                <p className="text-[12px] text-neutral-400 leading-relaxed min-h-[36px] line-clamp-2">
-                  {agent.description}
-                </p>
-              </div>
-            </div>
-
-            {/* Bottom Row inside card */}
-            <div className="flex items-center justify-between border-t border-[#1e1e20] pt-3 mt-1">
-              <span className="text-[9px] text-neutral-500 font-bold tracking-widest uppercase flex items-center gap-1">
-                ⏰ {agent.schedule}
-              </span>
-              <button
-                onClick={() => onDeployClick(agent.template)}
-                className="px-4 py-2 rounded-xl bg-white hover:bg-neutral-200 text-black text-[11px] font-bold transition-all active:scale-95 shadow-sm cursor-pointer"
-              >
-                Deploy Agent
-              </button>
-            </div>
+        {/* 6 Grid Cards */}
+        <div className="flex gap-6 items-stretch">
+          {/* Vertical rotated text label on the left */}
+          <div className="flex items-center justify-center shrink-0 select-none pr-1.5 border-r border-[var(--border-subtle)]/50 mr-1.5">
+            <span 
+              className="text-[10px] font-bold tracking-[0.25em] text-[var(--text-tertiary)] dark:text-zinc-500 uppercase whitespace-nowrap" 
+              style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+            >
+              Top 5 Agents &mdash; Last 24h
+            </span>
           </div>
-        ))}
-      </div>
 
-      {/* 3. Styled Input Console matching bottom of reference layout */}
-      <div className="max-w-2xl mx-auto space-y-5 pt-2">
-        <form onSubmit={handlePromptSubmitForm} className="relative w-full text-left">
-          <div className="w-full rounded-[24px] border border-[#2a2a2a] bg-[#151515] focus-within:border-neutral-600 shadow-xl p-4 transition-all duration-200">
-            {/* Prompt input */}
-            <textarea
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handlePromptSubmitForm(e);
-                }
-              }}
-              placeholder="Describe your agent..."
-              className="w-full bg-transparent text-white text-sm sm:text-base outline-none resize-none placeholder:text-neutral-650 min-h-[50px] focus:outline-none"
-              rows={2}
-            />
-
-            {/* Bottom Actions Row inside Input Console */}
-            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-[#222]">
-              {/* Left Actions: Plus & Format icons */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-500 hover:text-white hover:bg-neutral-800/40 transition-all cursor-pointer"
-                  title="Attach file"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  className="px-2.5 py-1 rounded-lg border border-[#2a2a2a] text-[10px] font-bold text-neutral-450 hover:text-white hover:bg-neutral-800/40 transition-all flex items-center gap-1 cursor-pointer"
-                  title="Format prompt"
-                >
-                  <SlidersHorizontal className="w-3 h-3 text-neutral-500" />
-                  <span>Format</span>
-                </button>
-              </div>
-
-              {/* Right Actions: Model selector pill + send button */}
-              <div className="flex items-center gap-3">
-                {/* Model Selector dropdown */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                    className="px-3 py-1.5 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] hover:bg-neutral-800 text-xs font-semibold text-neutral-300 flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>🍌 {selectedModel}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />
-                  </button>
-
-                  {isModelDropdownOpen && (
-                    <>
-                      <div className="fixed inset-0 z-10" onClick={() => setIsModelDropdownOpen(false)} />
-                      <div className="absolute right-0 bottom-full mb-2 w-44 bg-[#151515] border border-[#2a2a2a] rounded-xl shadow-xl py-1 z-20">
-                        {MODELS.map((model) => (
-                          <button
-                            key={model}
-                            type="button"
-                            onClick={() => {
-                              setSelectedModel(model);
-                              setIsModelDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 text-xs hover:bg-[#1a1a1a] transition-all cursor-pointer ${
-                              selectedModel === model ? "text-[var(--accent)] font-bold" : "text-neutral-300"
-                            }`}
-                          >
-                            {model}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5 flex-1">
+          {FEATURED_AGENTS.map((agent) => (
+            <div
+              key={agent.id}
+              onClick={() => onDeployClick(agent.template)}
+              className="bg-[var(--bg-surface)] border border-[var(--border-color)] hover:border-[var(--text-tertiary)] rounded-[20px] p-4 flex flex-col justify-between gap-3.5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md group cursor-pointer text-left"
+            >
+              <div className="flex items-start gap-3.5">
+                {/* Left: Avatar artwork */}
+                <div className="w-[68px] h-[68px] rounded-[14px] overflow-hidden bg-[var(--bg-primary)] border border-[var(--border-color)] shrink-0 flex items-center justify-center">
+                  <img
+                    src={agent.coverImage}
+                    alt={agent.title}
+                    className="w-full h-full object-cover select-none pointer-events-none transition-transform duration-500 group-hover:scale-105"
+                  />
                 </div>
+                
+                {/* Right: Text layout */}
+                <div className="flex-1 space-y-1 min-w-0">
+                  <h3 className="text-[15px] font-bold text-[var(--text-primary)] tracking-wide truncate group-hover:text-[var(--accent)] transition-colors">
+                    {agent.title}
+                  </h3>
+                  <p className="text-[12px] text-[var(--text-secondary)] leading-relaxed line-clamp-2">
+                    {agent.description}
+                  </p>
+                </div>
+              </div>
 
-                {/* Submit button */}
+              {/* Bottom Row inside card: minimal outline CTA */}
+              <div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-2.5 mt-0.5">
+                <span className="text-[9px] text-[var(--text-tertiary)] font-bold tracking-widest uppercase flex items-center gap-1">
+                  ⏰ {agent.schedule.replace("RUNS ", "")}
+                </span>
                 <button
-                  type="submit"
-                  disabled={!customPrompt.trim()}
-                  className="w-8 h-8 rounded-full bg-neutral-800 disabled:opacity-20 text-white hover:bg-[var(--accent)] transition-all flex items-center justify-center cursor-pointer shadow"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeployClick(agent.template);
+                  }}
+                  className="px-4 py-1.5 rounded-lg border border-[var(--border-color)] bg-transparent text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] hover:!text-[var(--text-primary)] hover:border-[var(--accent)] text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer"
                 >
-                  <ArrowRight className="w-4 h-4" />
+                  Run Agent
                 </button>
               </div>
             </div>
-          </div>
-        </form>
+          ))}
 
-        {/* Buttons underneath prompt area */}
-        <div className="flex items-center justify-center gap-4 text-neutral-400 font-sans">
-          <button
-            type="button"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#151515] border border-[#2a2a2a] hover:bg-neutral-900 text-xs font-bold transition-all cursor-pointer"
+          {/* 6th Card: View All Agents CTA - horizontal layout, no icon, responsive light cream / dark gray background, minimal static style */}
+          <div
+            onClick={() => {
+              document.getElementById("ready-agents-section")?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="bg-[#FBF9F6] dark:bg-zinc-900 border border-[#E8E4DC] dark:border-[var(--border-color)] hover:border-zinc-400 dark:hover:border-[var(--text-tertiary)] rounded-[20px] p-5 flex items-center justify-between transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md group cursor-pointer text-left relative overflow-hidden"
           >
-            <Upload className="w-4 h-4 text-neutral-500" />
-            <span>Upload</span>
-          </button>
-          <button
-            type="button"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#151515] border border-[#2a2a2a] hover:bg-neutral-900 text-xs font-bold transition-all cursor-pointer"
-          >
-            <FolderPlus className="w-4 h-4 text-neutral-500" />
-            <span>Add from Project</span>
-          </button>
+            {/* Left side: Bigger text with subtext, no icon */}
+            <div className="flex flex-col gap-1 min-w-0 pr-4 relative z-10 select-none pointer-events-none">
+              <h3 className="text-xl font-bold text-zinc-900 dark:text-white tracking-wide leading-tight">
+                View All Agents
+              </h3>
+              <p className="text-[12px] text-zinc-500 dark:text-zinc-400 leading-normal font-medium">
+                Deploy the ones you want, or get inspiration.
+              </p>
+            </div>
+
+            {/* Right side: Explore button CTA */}
+            <div
+              className="px-5 py-2.5 rounded-xl bg-transparent text-zinc-900 dark:text-white border border-zinc-300 dark:border-zinc-700 group-hover:border-zinc-900 dark:group-hover:border-white text-xs font-bold shrink-0 relative z-10 select-none pointer-events-none transition-all duration-200"
+            >
+              Explore
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 4. Minimal Search Bar and Scroll down section for more */}
-      <div className="max-w-4xl mx-auto pt-16 border-t border-[#1f1f1f] space-y-6">
+        {/* 3. Input Console Area */}
+        <div className="space-y-4">
+          <div className="max-w-2xl mx-auto">
+            <form onSubmit={handlePromptSubmitForm} className="relative w-full text-left">
+              <div 
+                className={`w-full rounded-[24px] border border-[var(--border-color)] bg-[var(--bg-surface)] focus-within:border-[var(--accent)] focus-within:ring-4 focus-within:ring-[var(--accent)]/10 shadow-lg p-3.5 transition-all duration-350 ${
+                  shouldPulse ? "animate-neon-pulse" : ""
+                }`}
+                onFocus={handleFocus}
+                onClick={handleFocus}
+              >
+                {/* Prompt input */}
+                <textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handlePromptSubmitForm(e);
+                    }
+                  }}
+                  placeholder="Describe your agent..."
+                  className="w-full bg-transparent text-[var(--text-primary)] text-sm outline-none resize-none placeholder:text-[var(--text-tertiary)] min-h-[48px] focus:outline-none"
+                  rows={2}
+                />
+
+                {/* Bottom Actions Row inside Input Console */}
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-[var(--border-subtle)]">
+                  {/* Left Actions: Plus icon & Schedule / Delivery buttons */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] transition-all cursor-pointer shrink-0"
+                      title="Attach file"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => togglePanel("schedule")}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[10px] font-semibold transition-all cursor-pointer ${
+                        activePanel === "schedule"
+                          ? "bg-[var(--accent)] text-white border-[var(--accent)] shadow-sm"
+                          : "bg-[var(--bg-primary)] border-[var(--border-color)] hover:border-[var(--text-tertiary)] text-[var(--text-secondary)]"
+                      }`}
+                    >
+                      <Calendar className="w-3 h-3" />
+                      <span>Schedule</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => togglePanel("delivery")}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[10px] font-semibold transition-all cursor-pointer ${
+                        activePanel === "delivery"
+                          ? "bg-[var(--accent)] text-white border-[var(--accent)] shadow-sm"
+                          : "bg-[var(--bg-primary)] border-[var(--border-color)] hover:border-[var(--text-tertiary)] text-[var(--text-secondary)]"
+                      }`}
+                    >
+                      <Bell className="w-3 h-3" />
+                      <span>Delivery</span>
+                    </button>
+                  </div>
+
+                  {/* Right Actions: Mic & send button */}
+                  <div className="flex items-center gap-2.5">
+                    {/* Voice Status Text */}
+                    {voiceStatus && (
+                      <span className="text-[10px] text-[var(--error-text)] font-semibold animate-pulse mr-1">
+                        {voiceStatus}
+                      </span>
+                    )}
+
+                    {/* Microphone Button */}
+                    <button
+                      type="button"
+                      onClick={handleVoiceRecord}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                        isRecording 
+                          ? "bg-[var(--error-text)] text-white animate-pulse" 
+                          : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]"
+                      }`}
+                      title={isRecording ? "Stop recording" : "Record voice message"}
+                    >
+                      <Mic className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Submit button */}
+                    <button
+                      type="submit"
+                      disabled={!customPrompt.trim() && !isRecording}
+                      className="w-7 h-7 rounded-full bg-[var(--accent)] disabled:opacity-20 text-white hover:bg-[var(--accent-hover)] transition-all flex items-center justify-center cursor-pointer shadow"
+                    >
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Extended Configuration Panel inside the AI Box (Slide down accordion effect) */}
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    activePanel 
+                      ? "max-h-[300px] border-t border-[var(--border-subtle)] mt-3 pt-3 opacity-100" 
+                      : "max-h-0 opacity-0 pointer-events-none"
+                  }`}
+                >
+                  {activePanel === "schedule" && (
+                    <div className="space-y-3 text-left">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
+                            Execution Schedule
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={schedulePreset}
+                              onChange={(e) => setSchedulePreset(e.target.value)}
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-xs focus:outline-none focus:border-[var(--accent)] cursor-pointer appearance-none animate-none"
+                            >
+                              <option value="hourly">Every hour</option>
+                              <option value="every-6">Every 6 hours</option>
+                              <option value="every-12">Every 12 hours</option>
+                              <option value="daily">Daily</option>
+                              <option value="weekly">Weekly</option>
+                              <option value="custom">Custom Schedule</option>
+                            </select>
+                            <ChevronDown className="w-3 h-3 text-[var(--text-tertiary)] absolute right-2.5 top-2 pointer-events-none" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
+                            Custom Schedule Details
+                          </label>
+                          <input
+                            type="text"
+                            value={customSchedule}
+                            onChange={(e) => setCustomSchedule(e.target.value)}
+                            disabled={schedulePreset !== "custom"}
+                            placeholder="e.g. Every Monday at 9 am"
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-xs placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] disabled:opacity-40"
+                          />
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-[var(--border-subtle)] text-[10px] text-[var(--text-secondary)] flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                        <span>
+                          Your agent will execute:{" "}
+                          <strong className="text-[var(--text-primary)]">
+                            {schedulePreset === "custom" 
+                              ? customSchedule 
+                              : schedulePreset === "hourly" 
+                              ? "Every hour" 
+                              : schedulePreset === "every-6" 
+                              ? "Every 6 hours" 
+                              : schedulePreset === "every-12" 
+                              ? "Every 12 hours" 
+                              : schedulePreset === "daily" 
+                              ? "Daily" 
+                              : "Weekly"}
+                          </strong>
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {activePanel === "delivery" && (
+                    <div className="space-y-2.5 text-left">
+                      <span className="block text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-0.5">
+                        Output Delivery Channels
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {[
+                          { id: "dashboard", label: "In-App Dashboard", desc: "View execution reports & logs" },
+                          { id: "email", label: "Email Digests", desc: "Receive automated email summaries" },
+                          { id: "telegram", label: "Telegram Push Alerts", desc: "Instant mobile notifications" },
+                          { id: "webhook", label: "Custom Webhook Endpoint", desc: "Send JSON payload to API URL" }
+                        ].map((channel) => (
+                          <label
+                            key={channel.id}
+                            className={`flex items-start gap-2.5 p-2 rounded-lg border transition-all cursor-pointer select-none ${
+                              deliveryChannels[channel.id]
+                                ? "bg-[var(--bg-surface-hover)] border-[var(--text-tertiary)]"
+                                : "bg-[var(--bg-primary)] border-[var(--border-color)] hover:bg-[var(--bg-surface-hover)]"
+                            }`}
+                          >
+                            <div className="mt-0.5 relative flex items-center justify-center">
+                              <input
+                                type="checkbox"
+                                checked={deliveryChannels[channel.id]}
+                                onChange={() => handleDeliveryToggle(channel.id)}
+                                className="sr-only"
+                              />
+                              <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${
+                                deliveryChannels[channel.id] 
+                                  ? "bg-[var(--accent)] border-[var(--accent)] text-white" 
+                                  : "border-[var(--text-tertiary)] bg-transparent"
+                              }`}>
+                                {deliveryChannels[channel.id] && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="block text-[11px] font-semibold text-[var(--text-primary)]">{channel.label}</span>
+                              <span className="block text-[9px] text-[var(--text-secondary)]">{channel.desc}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </form>
+          </div>
+
+        </div>
+
+        {/* 4. Disclaimer Note at the bottom */}
+        <div className="flex justify-between items-center text-[10px] text-[var(--text-tertiary)] pt-2 border-t border-[var(--border-color)]">
+          <span>Bossint can make mistakes, so double check it.</span>
+          <span className="hidden sm:inline">Press Enter to send, Shift+Enter for new line</span>
+        </div>
+      </div>
+
+      {/* 5. Minimal Search Bar and Scroll down section for more */}
+      <div id="ready-agents-section" className="max-w-4xl mx-auto pt-16 border-t border-[var(--border-color)] space-y-6">
         
         {/* Scroll Indicator & Title */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-1.5 text-xs text-neutral-500 uppercase tracking-widest font-semibold">
+          <div className="inline-flex items-center gap-1.5 text-xs text-[var(--text-tertiary)] uppercase tracking-widest font-semibold">
             <ArrowDown className="w-3.5 h-3.5 animate-bounce" />
             <span>Scroll down for more blueprints</span>
           </div>
-          <h2 className="text-lg font-bold text-neutral-200">
-            Explore All Ready Agents
+          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)]">
+            Ready Agents
           </h2>
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-lg mx-auto">
+            Deploy or copy pre-configured research and OSINT agents
+          </p>
         </div>
 
         {/* Search Input and Categories Pill Container */}
-        <div className="bg-[#121212] border border-[#1f1f1f] p-5 rounded-2xl space-y-4">
+        <div className="bg-[var(--bg-surface)] border border-[var(--border-color)] p-8 rounded-2xl space-y-6">
           <div className="relative">
-            <Search className="absolute left-3.5 top-3 w-4.5 h-4.5 text-neutral-600" />
+            <Search className="absolute left-3.5 top-3 w-4.5 h-4.5 text-[var(--text-tertiary)]" />
             <input
               type="text"
               placeholder="Search templates by title, description or tag..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#222] bg-[#0c0c0c] text-white placeholder:text-neutral-600 focus:outline-none focus:border-neutral-500 text-xs transition-all"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] text-xs transition-all"
             />
           </div>
 
@@ -390,8 +639,8 @@ export default function CreateAgentView({
               onClick={() => setSelectedCategory("all")}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-all border ${
                 selectedCategory === "all"
-                  ? "bg-white text-black border-white"
-                  : "bg-[#1c1c1c] text-neutral-400 border-transparent hover:bg-neutral-800"
+                  ? "bg-[var(--accent)] text-white border-[var(--accent)]"
+                  : "bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] border-transparent hover:bg-[var(--bg-primary)]"
               }`}
             >
               All Categories
@@ -402,8 +651,8 @@ export default function CreateAgentView({
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-all border ${
                   selectedCategory === cat.id
-                    ? "bg-white text-black border-white"
-                    : "bg-[#1c1c1c] text-neutral-400 border-transparent hover:bg-neutral-800"
+                    ? "bg-[var(--accent)] text-white border-[var(--accent)]"
+                    : "bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] border-transparent hover:bg-[var(--bg-primary)]"
                 }`}
               >
                 {cat.title}
@@ -412,46 +661,63 @@ export default function CreateAgentView({
           </div>
         </div>
 
-        {/* Scrolling blueprints grid list */}
-        {filteredTemplates.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-12">
-            {filteredTemplates.map((blueprint) => (
-              <div
-                key={blueprint.id}
-                className="bg-[#121212] border border-[#1f1f1f] rounded-2xl p-4 flex flex-col justify-between gap-4"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--accent)]">
-                      {blueprint.categoryId}
-                    </span>
-                    <span className="text-[9px] text-neutral-500">
-                      {blueprint.schedule}
-                    </span>
-                  </div>
-                  <h4 className="text-xs sm:text-sm font-bold text-neutral-200">
-                    {blueprint.title}
-                  </h4>
-                  <p className="text-xs text-neutral-450 leading-relaxed line-clamp-2">
-                    {blueprint.description}
-                  </p>
-                </div>
-                
-                <div className="flex items-center justify-end pt-2 border-t border-[#1e1e1e]">
+        {/* Categories / Blueprints Grid */}
+        {selectedCategory === "all" && !searchQuery.trim() ? (
+          <div className="space-y-4">
+            <h3 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider text-left">
+              All Agent Categories
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-12">
+              {TEMPLATE_CATEGORIES.map((cat) => {
+                const count = categoryCounts[cat.id] || 0;
+                return (
                   <button
-                    onClick={() => onDeployClick(blueprint)}
-                    className="px-3 py-1.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[10px] font-bold cursor-pointer transition-all"
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className="flex flex-col text-left border border-[var(--border-color)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm rounded-xl p-5 transition-all duration-150 cursor-pointer group"
                   >
-                    Deploy Agent
+                    <div className="flex items-center justify-between mb-3 w-full">
+                      <div className="w-9 h-9 rounded-lg bg-[var(--bg-primary)] group-hover:bg-[var(--accent-subtle)] group-hover:text-[var(--accent)] text-[var(--text-secondary)] transition-colors flex items-center justify-center">
+                        <CategoryIcon name={cat.icon} className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-surface-hover)] px-2 py-0.5 rounded">
+                        {count}
+                      </span>
+                    </div>
+
+                    <h4 className="text-xs font-bold text-[var(--text-primary)] mb-1 group-hover:text-[var(--accent)] transition-colors uppercase tracking-wider">
+                      {cat.title}
+                    </h4>
+                    <p className="text-[11px] text-[var(--text-secondary)] leading-normal line-clamp-2 mb-3">
+                      {cat.description}
+                    </p>
+
+                    <div className="flex items-center gap-1 text-[10px] font-semibold text-[var(--accent)] mt-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span>Explore templates</span>
+                      <ArrowRight className="w-3 h-3" strokeWidth={2} />
+                    </div>
                   </button>
-                </div>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
         ) : (
-          <div className="text-center py-12 text-xs text-neutral-500">
-            No matching blueprints found.
-          </div>
+          /* Scrolling blueprints grid list */
+          filteredTemplates.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pb-12">
+              {filteredTemplates.map((blueprint) => (
+                <TemplateCard
+                  key={blueprint.id}
+                  template={blueprint}
+                  onDeploy={onDeployClick}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-xs text-[var(--text-tertiary)]">
+              No matching blueprints found.
+            </div>
+          )
         )}
       </div>
 

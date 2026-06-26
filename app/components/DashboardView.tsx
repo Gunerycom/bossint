@@ -34,6 +34,8 @@ export default function DashboardView() {
   const {
     tasks,
     runTask,
+    stopTask,
+    stopAllAgents,
     setTaskStatus,
     deleteTask,
     setView,
@@ -530,6 +532,14 @@ export default function DashboardView() {
                 >
                   Delete
                 </button>
+                {runningAgents > 0 && (
+                  <button
+                    onClick={stopAllAgents}
+                    className="px-2.5 py-1 text-xs font-bold bg-red-500/10 text-red-500 rounded-lg border border-red-500/20 hover:bg-red-500/20 cursor-pointer"
+                  >
+                    Stop All
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -568,119 +578,126 @@ export default function DashboardView() {
 
                       {/* Group Table Rows */}
                       {!isCollapsed && (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs border-collapse">
-                            <thead>
-                              <tr className="border-b border-[var(--border-color)] text-[var(--text-tertiary)] font-bold bg-[var(--bg-surface)]">
-                                <th className="p-3 w-8">
-                                  <button
-                                    onClick={() => toggleSelectAll(catTasks)}
-                                    className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer"
-                                  >
-                                    {selectedIds.size === catTasks.length ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                                  </button>
-                                </th>
-                                <th className="p-3">Agent Name</th>
-                                <th className="p-3">Schedule</th>
-                                <th className="p-3">Run Count</th>
-                                <th className="p-3">Last Active</th>
-                                <th className="p-3">Status</th>
-                                <th className="p-3 text-right">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--border-subtle)]">
-                              {catTasks.map((task) => {
-                                const isSelected = selectedIds.has(task.id);
-                                const isEditing = editingId === task.id;
+                        <div className="p-4 bg-[var(--bg-primary)]/15 border-t border-[var(--border-color)] space-y-3">
+                          {/* Card Selection Toolbar */}
+                          <div className="flex items-center justify-between px-1 text-[11px] font-semibold">
+                            <button
+                              onClick={() => toggleSelectAll(catTasks)}
+                              className="flex items-center gap-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer select-none transition-colors"
+                            >
+                              {selectedIds.size === catTasks.length ? (
+                                <CheckSquare className="w-4 h-4 text-[var(--accent)]" />
+                              ) : (
+                                <Square className="w-4 h-4" />
+                              )}
+                              <span>Select All ({catTasks.length})</span>
+                            </button>
+                          </div>
 
-                                return (
-                                  <tr 
-                                    key={task.id} 
-                                    className={`hover:bg-[var(--bg-surface-hover)]/30 transition-colors ${
-                                      isSelected ? "bg-[var(--accent-subtle)]/40" : ""
-                                    }`}
-                                  >
-                                    {/* Checkbox */}
-                                    <td className="p-3">
-                                      <button 
-                                        onClick={() => toggleSelectOne(task.id)}
-                                        className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer"
-                                      >
-                                        {isSelected ? <CheckSquare className="w-4 h-4 text-[var(--accent)]" /> : <Square className="w-4 h-4" />}
-                                      </button>
-                                    </td>
+                          {/* Cards Grid */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {catTasks.map((task) => {
+                              const isSelected = selectedIds.has(task.id);
+                              const isEditing = editingId === task.id;
 
-                                    {/* Title / Rename */}
-                                    <td className="p-3 font-semibold text-[var(--text-primary)]">
-                                      {isEditing ? (
-                                        <div className="flex items-center gap-1.5">
-                                          <input
-                                            type="text"
-                                            value={editTitle}
-                                            onChange={(e) => setEditTitle(e.target.value)}
-                                            onKeyDown={(e) => {
-                                              if (e.key === "Enter") saveRename(task.id);
-                                              else if (e.key === "Escape") cancelRename();
-                                            }}
-                                            className="px-2 py-1 text-xs rounded border border-[var(--accent)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:outline-none max-w-[150px]"
-                                            autoFocus
-                                          />
-                                          <button onClick={() => saveRename(task.id)} className="p-1 text-emerald-500 hover:bg-emerald-500/10 rounded cursor-pointer">
-                                            <Check className="w-3.5 h-3.5" />
-                                          </button>
-                                          <button onClick={cancelRename} className="p-1 text-red-500 hover:bg-red-500/10 rounded cursor-pointer">
-                                            <X className="w-3.5 h-3.5" />
-                                          </button>
-                                        </div>
-                                      ) : (
-                                        <div className="flex items-center gap-1.5 group/title">
-                                          <button
-                                            onClick={() => {
-                                              router.push(`/agents/${task.id}`);
-                                            }}
-                                            className="hover:text-[var(--accent)] text-left cursor-pointer truncate max-w-[180px]"
-                                          >
-                                            {task.title}
-                                          </button>
-                                          <button 
-                                            onClick={() => startEditing(task)}
-                                            className="opacity-0 group-hover/title:opacity-100 p-0.5 rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer transition-opacity"
-                                          >
-                                            <Edit2 className="w-3 h-3" />
-                                          </button>
-                                        </div>
-                                      )}
-                                    </td>
+                              return (
+                                <div
+                                  key={task.id}
+                                  className={`bg-[var(--bg-surface)] border rounded-2xl p-4 flex flex-col justify-between min-h-[195px] transition-all duration-200 group relative ${
+                                    isSelected 
+                                      ? "border-[var(--accent)] shadow-sm bg-[var(--accent-subtle)]/15" 
+                                      : "border-[var(--border-color)] hover:border-[var(--text-tertiary)]/40 hover:shadow-md"
+                                  }`}
+                                >
+                                  {/* Top Row: Checkbox, Name, Status */}
+                                  <div className="space-y-2">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        {/* Checkbox */}
+                                        <button 
+                                          onClick={() => toggleSelectOne(task.id)}
+                                          className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer shrink-0 transition-colors"
+                                        >
+                                          {isSelected ? (
+                                            <CheckSquare className="w-4.5 h-4.5 text-[var(--accent)]" />
+                                          ) : (
+                                            <Square className="w-4.5 h-4.5 opacity-60 group-hover:opacity-100" />
+                                          )}
+                                        </button>
+                                        
+                                        {/* Title / Rename */}
+                                        {isEditing ? (
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            <input
+                                              type="text"
+                                              value={editTitle}
+                                              onChange={(e) => setEditTitle(e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter") saveRename(task.id);
+                                                else if (e.key === "Escape") cancelRename();
+                                              }}
+                                              className="px-2 py-0.5 text-xs rounded border border-[var(--accent)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:outline-none w-full max-w-[120px]"
+                                              autoFocus
+                                            />
+                                            <button onClick={() => saveRename(task.id)} className="p-1 text-emerald-500 hover:bg-emerald-500/10 rounded cursor-pointer shrink-0">
+                                              <Check className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button onClick={cancelRename} className="p-1 text-red-500 hover:bg-red-500/10 rounded cursor-pointer shrink-0">
+                                              <X className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-1 min-w-0 group/title">
+                                            <button
+                                              onClick={() => {
+                                                router.push(`/agents/${task.id}`);
+                                              }}
+                                              className="font-bold text-xs text-[var(--text-primary)] hover:text-[var(--accent)] text-left cursor-pointer truncate max-w-[120px] tracking-wide"
+                                            >
+                                              {task.title}
+                                            </button>
+                                            <button 
+                                              onClick={() => startEditing(task)}
+                                              className="opacity-0 group-hover/title:opacity-100 p-0.5 rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer transition-opacity"
+                                            >
+                                              <Edit2 className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                      
+                                      {/* Status Badge */}
+                                      <div className="shrink-0">
+                                        {getStatusBadge(task.status)}
+                                      </div>
+                                    </div>
 
-                                    {/* Schedule */}
-                                    <td className="p-3 text-[var(--text-secondary)]">
-                                      <span className="inline-flex items-center gap-1 text-[11px]">
-                                        <Clock className="w-3 h-3 text-[var(--text-tertiary)]" />
-                                        {task.schedule.label}
-                                      </span>
-                                    </td>
+                                    {/* Prompt/Target Preview */}
+                                    <p className="text-[11px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed min-h-[32px] pl-6.5 font-medium">
+                                      {task.prompt || task.target || "No search prompt defined."}
+                                    </p>
+                                  </div>
 
-                                    {/* Run Count */}
-                                    <td className="p-3 font-medium text-[var(--text-secondary)] text-center w-20">
-                                      {task.runCount || 0}
-                                    </td>
+                                  {/* Bottom Row: Stats & Action buttons */}
+                                  <div className="mt-4 pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between">
+                                    {/* Execution Stats */}
+                                    <div className="flex flex-col gap-0.5 text-[9px] text-[var(--text-tertiary)] pl-1.5 font-bold uppercase tracking-wider">
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="w-2.5 h-2.5" />
+                                        <span>{task.schedule.label}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Activity className="w-2.5 h-2.5 text-indigo-500" />
+                                        <span>{task.runCount || 0} Runs · {task.lastRunAt ? formatRelativeTime(task.lastRunAt) : "Never"}</span>
+                                      </div>
+                                    </div>
 
-                                    {/* Last Active */}
-                                    <td className="p-3 text-[var(--text-secondary)] text-[11px]">
-                                      {task.lastRunAt ? formatRelativeTime(task.lastRunAt) : "Never"}
-                                    </td>
-
-                                    {/* Status Badge */}
-                                    <td className="p-3">
-                                      {getStatusBadge(task.status)}
-                                    </td>
-
-                                    {/* Quick Actions */}
-                                    <td className="p-3 text-right space-x-1 min-w-[140px]">
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-0.5">
                                       {/* Run Now */}
                                       <button
                                         onClick={() => runTask(task.id)}
-                                        className="p-1.5 rounded hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer inline-flex"
+                                        className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer inline-flex"
                                         title="Run Scan Now"
                                         disabled={task.status === "running"}
                                       >
@@ -691,17 +708,24 @@ export default function DashboardView() {
                                       {task.status === "paused" ? (
                                         <button
                                           onClick={() => setTaskStatus(task.id, "active")}
-                                          className="p-1.5 rounded hover:bg-[var(--bg-surface-hover)] text-emerald-500 cursor-pointer inline-flex"
+                                          className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-emerald-500 cursor-pointer inline-flex"
                                           title="Resume Agent"
                                         >
                                           <Play className="w-3.5 h-3.5" />
                                         </button>
+                                      ) : task.status === "running" ? (
+                                        <button
+                                          onClick={() => stopTask(task.id)}
+                                          className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 cursor-pointer inline-flex"
+                                          title="Stop Agent"
+                                        >
+                                          <Pause className="w-3.5 h-3.5" />
+                                        </button>
                                       ) : (
                                         <button
                                           onClick={() => setTaskStatus(task.id, "paused")}
-                                          className="p-1.5 rounded hover:bg-[var(--bg-surface-hover)] text-amber-500 cursor-pointer inline-flex"
+                                          className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-amber-500 cursor-pointer inline-flex"
                                           title="Pause Agent"
-                                          disabled={task.status === "running"}
                                         >
                                           <Pause className="w-3.5 h-3.5" />
                                         </button>
@@ -712,7 +736,7 @@ export default function DashboardView() {
                                         onClick={() => {
                                           router.push(`/agents/${task.id}`);
                                         }}
-                                        className="p-1.5 rounded hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer inline-flex"
+                                        className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer inline-flex"
                                         title="View Reports & History"
                                       >
                                         <FileText className="w-3.5 h-3.5" />
@@ -725,17 +749,17 @@ export default function DashboardView() {
                                             deleteTask(task.id);
                                           }
                                         }}
-                                        className="p-1.5 rounded hover:bg-red-500/10 text-red-500 hover:text-red-600 cursor-pointer inline-flex"
+                                        className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 hover:text-red-600 cursor-pointer inline-flex"
                                         title="Delete Agent"
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>

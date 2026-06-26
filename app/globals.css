@@ -57,21 +57,21 @@
 
 /* Dark mode */
 .dark {
-  --bg-primary: #09090B;
-  --bg-surface: #18181B;
-  --bg-surface-hover: #27272A;
-  --bg-user-bubble: #27272A;
+  --bg-primary: #18181B;
+  --bg-surface: #27272A;
+  --bg-surface-hover: #3F3F46;
+  --bg-user-bubble: #3F3F46;
   --text-primary: #FAFAFA;
   --text-secondary: #A1A1AA;
   --text-tertiary: #71717A;
   --accent: #818CF8;
   --accent-hover: #6366F1;
   --accent-subtle: rgba(129, 140, 248, 0.1);
-  --border-color: #27272A;
-  --border-subtle: #1E1E2F;
+  --border-color: #3F3F46;
+  --border-subtle: #2D2D3A;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --code-bg: #27272A;
+  --code-bg: #18181B;
   --code-border: #3F3F46;
   --thinking-bg: rgba(129, 140, 248, 0.06);
   --thinking-border: rgba(129, 140, 248, 0.2);
@@ -402,4 +402,36 @@ textarea {
 
 .grid-cols-24 {
   grid-template-columns: repeat(24, minmax(0, 1fr));
+}
+
+/* ========================================
+   Neon Blue Pulse Animation
+   ======================================== */
+
+@keyframes neon-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 210, 255, 0), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+    border-color: var(--border-color) !important;
+  }
+  25% {
+    box-shadow: 0 0 12px 2px rgba(0, 210, 255, 0.45), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+    border-color: rgba(0, 210, 255, 0.75) !important;
+  }
+  50% {
+    box-shadow: 0 0 20px 4px rgba(0, 210, 255, 0.7), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+    border-color: rgba(0, 210, 255, 1) !important;
+  }
+  75% {
+    box-shadow: 0 0 12px 2px rgba(0, 210, 255, 0.45), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+    border-color: rgba(0, 210, 255, 0.75) !important;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 210, 255, 0), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+    border-color: var(--border-color) !important;
+  }
+}
+
+.animate-neon-pulse {
+  animation: neon-pulse 2.2s ease-in-out infinite !important;
+  transition: none !important;
 }

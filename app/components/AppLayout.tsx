@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import LeftSidebar from "./LeftSidebar";
 import TopBar from "./TopBar";
 import LandingPage from "./LandingPage";
-import TemplateDeployDialog from "./TemplateDeployDialog";
+import AgentDeployManagementModal from "./AgentDeployManagementModal";
 import CreateTaskDialog from "./CreateTaskDialog";
 import OnboardingFlow from "./OnboardingFlow";
 import { useTaskStore } from "./TaskStore";
@@ -18,6 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     isDeployOpen,
     setIsDeployOpen,
     deployTemplate,
+    deployCustomPrompt,
     isCreateTaskOpen,
     setIsCreateTaskOpen,
     hasCompletedOnboarding,
@@ -100,11 +101,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* Global Template Deploy Dialog */}
-      <TemplateDeployDialog
+      {/* Global Agent Deploy & Management Dialog */}
+      <AgentDeployManagementModal
         isOpen={isDeployOpen}
         onClose={() => setIsDeployOpen(false)}
         template={deployTemplate}
+        initialCustomPrompt={deployCustomPrompt}
       />
 
       {/* Global Task Creation Dialog */}

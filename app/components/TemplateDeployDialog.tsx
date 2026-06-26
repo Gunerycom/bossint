@@ -37,6 +37,7 @@ export default function TemplateDeployDialog({
   const [schedule, setSchedule] = useState("daily");
   const [customSchedule, setCustomSchedule] = useState("");
   const [isDeploying, setIsDeploying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (template) {
@@ -59,6 +60,7 @@ export default function TemplateDeployDialog({
     if (!name.trim() || !prompt.trim()) return;
 
     setIsDeploying(true);
+    setError(null);
 
     const finalSchedule = customSchedule.trim() || schedule;
 
@@ -83,139 +85,61 @@ export default function TemplateDeployDialog({
     else if (finalSchedule === "weekly") intervalMs = 7 * 24 * 60 * 60 * 1000;
 
     const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
-    if (token) {
-      try {
-        const cronExpr = labelToCron(finalSchedule);
-        const res = await fetch("/api/agents", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            prompt: prompt.trim(),
-            schedule: cronExpr,
-            schedule_label: finalSchedule,
-            max_items: taskType === "crawl" ? 10 : 5,
-          })
-        });
-
-        if (res.ok) {
-          const newAgent = await res.json();
-          const newTask: Task = {
-            id: newAgent.id,
-            title: name.trim(),
-            prompt: prompt.trim(),
-            type: taskType,
-            status: "active",
-            schedule: {
-              label: SCHEDULE_PRESETS.find((p) => p.value === finalSchedule)?.label || finalSchedule,
-              intervalMs,
-            },
-            target: name.trim(),
-            createdAt: now,
-            nextRunAt: now + intervalMs,
-            runCount: 0,
-            data: [],
-          };
-          addTask(newTask);
-          runTask(newAgent.id);
-          syncTasks();
-          setIsDeploying(false);
-          setSelectedAgentId(newAgent.id);
-          onClose();
-          return;
-        }
-      } catch (err) {
-        console.error("Direct API deploy failed, falling back to chat NLP:", err);
-      }
+    if (!token) {
+      setError("Authentication token is missing. Please sign in again.");
+      setIsDeploying(false);
+      return;
     }
 
-    const nlpCommand = `${taskType} "${name.trim()}" ${finalSchedule}: ${prompt.trim()}`;
-    
     try {
-      const res = await fetch("/api/chat", {
+      const cronExpr = labelToCron(finalSchedule);
+      const res = await fetch("/api/agents", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify({ message: nlpCommand, stream: false }),
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          schedule: cronExpr,
+          schedule_label: finalSchedule,
+          max_items: taskType === "crawl" ? 10 : 5,
+        })
       });
 
-      let parsedId = null;
       if (res.ok) {
-        const data = await res.json();
-        if (data && typeof data.answer === "string") {
-          // Extract taskId from answer
-          const match = data.answer.match(/(?:task|created|id|agent)\s*[:\-#]?\s*\b([a-fA-F0-9]{8})\b/i);
-          if (match) {
-            parsedId = match[1];
-          } else {
-            const fallbackMatch = data.answer.match(/\b([a-fA-F0-9]{8})\b/);
-            if (fallbackMatch) {
-              parsedId = fallbackMatch[1];
-            }
-          }
-        }
+        const newAgent = await res.json();
+        const newTask: Task = {
+          id: newAgent.id,
+          title: name.trim(),
+          prompt: prompt.trim(),
+          type: taskType,
+          status: "active",
+          schedule: {
+            label: SCHEDULE_PRESETS.find((p) => p.value === finalSchedule)?.label || finalSchedule,
+            intervalMs,
+          },
+          target: name.trim(),
+          createdAt: now,
+          nextRunAt: now + intervalMs,
+          runCount: 0,
+          data: [],
+        };
+        addTask(newTask);
+        runTask(newAgent.id);
+        syncTasks();
+        setIsDeploying(false);
+        setSelectedAgentId(newAgent.id);
+        onClose();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.detail || "Failed to deploy agent. Upstream server returned an error.");
+        setIsDeploying(false);
       }
-
-      const finalTaskId = parsedId || generateTaskId();
-
-      const newTask: Task = {
-        id: finalTaskId,
-        title: name.trim(),
-        prompt: prompt.trim(),
-        type: taskType,
-        status: "active",
-        schedule: {
-          label: SCHEDULE_PRESETS.find((p) => p.value === finalSchedule)?.label || finalSchedule,
-          intervalMs,
-        },
-        target: name.trim(),
-        createdAt: now,
-        nextRunAt: now + intervalMs,
-        runCount: 0,
-        data: [],
-      };
-
-      // Add task locally with the correct upstream ID
-      addTask(newTask);
-
-      // Start the task execution immediately in the background
-      runTask(finalTaskId);
-
-      // Sync tasks in background to align details
-      syncTasks();
-
-      setIsDeploying(false);
-      setSelectedAgentId(finalTaskId);
-      onClose();
     } catch (err) {
-      console.error("Error creating task upstream:", err);
-      // Fallback in case of network error
-      const fallbackId = generateTaskId();
-      const fallbackTask: Task = {
-        id: fallbackId,
-        title: name.trim(),
-        prompt: prompt.trim(),
-        type: taskType,
-        status: "active",
-        schedule: {
-          label: SCHEDULE_PRESETS.find((p) => p.value === finalSchedule)?.label || finalSchedule,
-          intervalMs,
-        },
-        target: name.trim(),
-        createdAt: now,
-        nextRunAt: now + intervalMs,
-        runCount: 0,
-        data: [],
-      };
-      addTask(fallbackTask);
-      runTask(fallbackId);
+      console.error("Direct API deploy failed:", err);
+      setError("Network error. Failed to connect to agent management server.");
       setIsDeploying(false);
-      setSelectedAgentId(fallbackId);
-      onClose();
     }
   };
 
@@ -229,6 +153,11 @@ export default function TemplateDeployDialog({
       maxWidth="max-w-[560px]"
     >
       <div className="space-y-5">
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-medium">
+            {error}
+          </div>
+        )}
         {/* Agent Name */}
         <div>
           <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">

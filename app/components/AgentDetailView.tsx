@@ -45,9 +45,11 @@ export default function AgentDetailView() {
     selectedAgentId,
     setView,
     runTask,
+    stopTask,
     setTaskStatus,
     deleteTask,
     updateTaskDetails,
+    deleteHistoryEntry,
   } = useTaskStore();
   const router = useRouter();
 
@@ -55,6 +57,8 @@ export default function AgentDetailView() {
   const [latestReport, setLatestReport] = useState<string | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
+  const [agentStats, setAgentStats] = useState<any>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   // Configuration Form State
   const [configTitle, setConfigTitle] = useState("");
@@ -71,6 +75,85 @@ export default function AgentDetailView() {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const task = tasks.find((t) => t.id === selectedAgentId);
+
+  // Retrieve token statistics for the agent
+  useEffect(() => {
+    if (!task || activeTab !== "analytics") return;
+
+    let active = true;
+    setIsLoadingStats(true);
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("bossint_user_token") : null;
+    if (token) {
+      fetch(`/api/agents/${task.id}/stats`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+        .then((res) => {
+          if (!res.ok) return null;
+          return res.json();
+        })
+        .then((data) => {
+          if (active && data) {
+            setAgentStats(data);
+          }
+        })
+        .catch((err) => console.error("Error fetching agent stats:", err))
+        .finally(() => {
+          if (active) setIsLoadingStats(false);
+        });
+    } else {
+      setIsLoadingStats(false);
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [task, activeTab]);
+
+  const points = useMemo(() => {
+    if (!agentStats || !agentStats.daily || agentStats.daily.length === 0) {
+      return "M 0 25 L 20 20 L 40 28 L 60 12 L 80 18 L 100 8";
+    }
+    const daily = [...agentStats.daily].reverse(); // Oldest first
+    const max = Math.max(...daily.map(d => d.total), 100);
+    const segments = daily.length - 1 || 1;
+    return daily.map((d, index) => {
+      const x = (index / segments) * 100;
+      const y = 30 - (d.total / max) * 25; // 25px max height inside 30px view
+      return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(" ");
+  }, [agentStats]);
+
+  const pointCircles = useMemo(() => {
+    if (!agentStats || !agentStats.daily || agentStats.daily.length === 0) {
+      return (
+        <>
+          <circle cx="20" cy="20" r="1.5" className="fill-[var(--accent)]" />
+          <circle cx="40" cy="28" r="1.5" className="fill-[var(--accent)]" />
+          <circle cx="60" cy="12" r="1.5" className="fill-[var(--accent)]" />
+          <circle cx="80" cy="18" r="1.5" className="fill-[var(--accent)]" />
+          <circle cx="100" cy="8" r="1.5" className="fill-[var(--accent)]" />
+        </>
+      );
+    }
+    const daily = [...agentStats.daily].reverse();
+    const max = Math.max(...daily.map(d => d.total), 100);
+    const segments = daily.length - 1 || 1;
+    return daily.map((d, index) => {
+      const x = (index / segments) * 100;
+      const y = 30 - (d.total / max) * 25;
+      return <circle key={index} cx={x} cy={y} r="1.5" className="fill-[var(--accent)]" />;
+    });
+  }, [agentStats]);
+
+  const { inputPercent, outputPercent } = useMemo(() => {
+    if (!agentStats || agentStats.total_tokens === 0) {
+      return { inputPercent: 40, outputPercent: 60 };
+    }
+    const inp = Math.round((agentStats.total_input_tokens / agentStats.total_tokens) * 100);
+    const out = 100 - inp;
+    return { inputPercent: inp, outputPercent: out };
+  }, [agentStats]);
 
   const reportText = useMemo(() => {
     return task ? generateUniqueReport(task, latestReport) : "";
@@ -104,7 +187,12 @@ export default function AgentDetailView() {
         headers: { "Authorization": `Bearer ${token}` }
       })
         .then((res) => {
-          if (!res.ok) throw new Error("API call failed");
+          if (!res.ok) {
+            if (res.status === 401 || res.status === 403) {
+              console.warn("Unauthorized access on agent details.");
+            }
+            return null;
+          }
           return res.json();
         })
         .then((data) => {
@@ -136,51 +224,22 @@ export default function AgentDetailView() {
                 runCount: data.history.length
               });
             }
+          } else {
+            setLatestReport("Agent not found or has no reports.");
           }
         })
         .catch((err) => {
-          console.error("Error fetching agent report via REST, trying fallback:", err);
-          // Fallback to chat command
-          if (active) {
-            fetch("/api/chat", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-              },
-              body: JSON.stringify({ message: `show task ${task.id}`, stream: false }),
-            })
-              .then((res) => res.json())
-              .then((data) => {
-                if (active && data && data.answer) {
-                  setLatestReport(data.answer);
-                }
-              })
-              .catch((chatErr) => console.error("Fallback chat report fetch failed:", chatErr));
-          }
+          console.error("Error fetching agent report via REST:", err);
+          if (active) setLatestReport("Failed to load report from REST API.");
         })
         .finally(() => {
           if (active) setIsLoadingReport(false);
         });
     } else {
-      // Local demo fallback
-      fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: `show task ${task.id}`, stream: false }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (active && data && data.answer) {
-            setLatestReport(data.answer);
-          }
-        })
-        .catch((err) => {
-          console.error("Error fetching agent report:", err);
-        })
-        .finally(() => {
-          if (active) setIsLoadingReport(false);
-        });
+      if (active) {
+        setLatestReport("Authentication token is missing. Cannot fetch report.");
+        setIsLoadingReport(false);
+      }
     }
 
     return () => {
@@ -354,7 +413,15 @@ export default function AgentDetailView() {
             </button>
           )}
 
-
+          {task.status === "running" && (
+            <button
+              onClick={() => stopTask(task.id)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-red-500/20 bg-red-500/5 text-red-500 hover:bg-red-500/15 text-xs font-semibold cursor-pointer transition-all"
+            >
+              <Pause className="w-3.5 h-3.5" />
+              <span>Stop</span>
+            </button>
+          )}
 
           <button
             onClick={handleDelete}
@@ -484,37 +551,39 @@ export default function AgentDetailView() {
               {/* Stat Boxes */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="p-4 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-xl shadow-sm">
-                  <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Average Latency</p>
-                  <p className="text-xl font-bold text-[var(--text-primary)] mt-1">4.2s</p>
-                  <span className="text-[9px] text-[var(--status-healthy)] font-semibold">▲ within normal limits</span>
+                  <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Total Token Usage</p>
+                  <p className="text-xl font-bold text-[var(--text-primary)] mt-1">
+                    {isLoadingStats ? "..." : (agentStats ? agentStats.total_tokens.toLocaleString() : "12,500")}
+                  </p>
+                  <span className="text-[9px] text-[var(--text-tertiary)]">cumulative tokens consumed</span>
                 </div>
                 <div className="p-4 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-xl shadow-sm">
-                  <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Data Volume Scanned</p>
-                  <p className="text-xl font-bold text-indigo-500 mt-1">12.4 KB</p>
-                  <span className="text-[9px] text-[var(--text-tertiary)]">total payload processed</span>
+                  <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Input Tokens</p>
+                  <p className="text-xl font-bold text-indigo-500 mt-1">
+                    {isLoadingStats ? "..." : (agentStats ? agentStats.total_input_tokens.toLocaleString() : "5,000")}
+                  </p>
+                  <span className="text-[9px] text-[var(--text-tertiary)]">prompt processing volume</span>
                 </div>
                 <div className="p-4 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-xl shadow-sm">
-                  <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Reliability Score</p>
-                  <p className="text-xl font-bold text-emerald-500 mt-1">100%</p>
-                  <span className="text-[9px] text-[var(--status-healthy)] font-semibold">No failed execution runs</span>
+                  <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Output Tokens</p>
+                  <p className="text-xl font-bold text-emerald-500 mt-1">
+                    {isLoadingStats ? "..." : (agentStats ? agentStats.total_output_tokens.toLocaleString() : "7,500")}
+                  </p>
+                  <span className="text-[9px] text-[var(--text-tertiary)]">response generation volume</span>
                 </div>
               </div>
 
               {/* Charts Mock Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-5 border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-xl shadow-sm space-y-4">
-                  <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Scan Speed Over Time (s)</p>
+                  <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Daily Token Consumption</p>
                   <svg className="w-full h-32 text-indigo-500" viewBox="0 0 100 30" preserveAspectRatio="none">
-                    <path d="M 0 25 L 20 20 L 40 28 L 60 12 L 80 18 L 100 8" fill="none" stroke="currentColor" strokeWidth="2" />
-                    <circle cx="20" cy="20" r="1.5" className="fill-[var(--accent)]" />
-                    <circle cx="40" cy="28" r="1.5" className="fill-[var(--accent)]" />
-                    <circle cx="60" cy="12" r="1.5" className="fill-[var(--accent)]" />
-                    <circle cx="80" cy="18" r="1.5" className="fill-[var(--accent)]" />
-                    <circle cx="100" cy="8" r="1.5" className="fill-[var(--accent)]" />
+                    <path d={points} fill="none" stroke="currentColor" strokeWidth="2" />
+                    {pointCircles}
                   </svg>
                 </div>
                 <div className="p-5 border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-xl shadow-sm space-y-4">
-                  <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Reliability Ratio</p>
+                  <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Token Distribution</p>
                   <div className="flex items-center justify-center gap-6">
                     <svg className="w-24 h-24" viewBox="0 0 36 36">
                       <path
@@ -525,8 +594,8 @@ export default function AgentDetailView() {
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       />
                       <path
-                        className="text-emerald-500"
-                        strokeDasharray="100, 100"
+                        className="text-indigo-500"
+                        strokeDasharray={`${outputPercent}, 100`}
                         strokeWidth="3"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -535,8 +604,8 @@ export default function AgentDetailView() {
                       />
                     </svg>
                     <div className="text-xs space-y-1">
-                      <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded bg-emerald-500" /> Success (100%)</div>
-                      <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded bg-red-500" /> Errors (0%)</div>
+                      <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded bg-indigo-500" /> Output ({outputPercent}%)</div>
+                      <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded bg-zinc-200 dark:bg-zinc-800" /> Input ({inputPercent}%)</div>
                     </div>
                   </div>
                 </div>
@@ -703,7 +772,16 @@ export default function AgentDetailView() {
                           <Clock className="w-3 h-3" />
                           {new Date(log.timestamp).toLocaleString()}
                         </span>
-                        <span>{formatRelativeTime(log.timestamp)}</span>
+                        <div className="flex items-center gap-2">
+                          <span>{formatRelativeTime(log.timestamp)}</span>
+                          <button
+                            onClick={() => deleteHistoryEntry(task.id, log.id)}
+                            className="p-1 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                            title="Delete this history entry"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                       <p className="text-xs text-[var(--text-secondary)] leading-relaxed italic">
                         {log.summary}
@@ -1177,7 +1255,7 @@ function IntelligenceReportView({ reportText }: { reportText: string }) {
                     return (
                       <div
                         key={itemId}
-                        className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 ${borderClass} bg-white dark:bg-zinc-950 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md`}
+                        className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 ${borderClass} bg-white dark:bg-[var(--bg-surface)] p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md`}
                       >
                         {/* Glowing accent border on hover */}
                         <div

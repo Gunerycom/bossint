@@ -315,35 +315,44 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
     switch (status) {
       case "active":
         return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-500 bg-emerald-500/8 px-2 py-0.5 rounded-full border border-emerald-500/15">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-450 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+            </span>
             Active
           </span>
         );
       case "running":
         return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-indigo-500 bg-indigo-500/8 px-2 py-0.5 rounded-full border border-indigo-500/15 animate-pulse">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping" />
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-500/20 animate-pulse">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-500 animate-pulse"></span>
+            </span>
             Running
           </span>
         );
       case "paused":
         return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-amber-500 bg-amber-500/8 px-2 py-0.5 rounded-full border border-amber-500/15">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-amber-450 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
             Paused
           </span>
         );
       case "error":
         return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-red-500 bg-red-500/8 px-2 py-0.5 rounded-full border border-red-500/15">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-red-405 bg-red-500/10 px-2.5 py-0.5 rounded-full border border-red-500/20">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-450 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
+            </span>
             Error
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-zinc-500 bg-zinc-500/8 px-2 py-0.5 rounded-full border border-zinc-500/15">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-zinc-400 bg-zinc-500/10 px-2.5 py-0.5 rounded-full border border-zinc-500/20">
             Completed
           </span>
         );
@@ -742,26 +751,26 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
       </div>
 
       {/* SECTION 1: My Agents */}
-      <div className="space-y-6 pt-6 border-t border-[var(--border-color)]">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+      <div className="space-y-6 pt-6 border-t border-zinc-800/80">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-2">
           <div>
-            <h3 className="text-lg font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-2">
-              <Cpu className="w-5 h-5 text-[var(--accent)]" />
+            <h3 className="text-xl font-bold tracking-tight text-zinc-100 flex items-center gap-2.5 font-sans">
+              <Cpu className="w-5.5 h-5.5 text-[var(--accent)]" />
               My Agents
             </h3>
-            <p className="text-xs text-[var(--text-secondary)]">Monitor and coordinate your running AI intelligence fleet.</p>
+            <p className="text-xs text-zinc-400 mt-0.5">Monitor and coordinate your running AI intelligence fleet.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] cursor-pointer transition-all"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl border border-zinc-800 bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/80 hover:text-zinc-100 hover:border-zinc-700 cursor-pointer transition-all active:scale-[0.98]"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export CSV</span>
             </button>
             <button
               onClick={() => setView("explore")}
-              className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-xl bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] cursor-pointer shadow-sm transition-all"
+              className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold rounded-xl bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] cursor-pointer shadow-[0_4px_12px_rgba(99,102,241,0.25)] hover:shadow-[0_4px_16px_rgba(99,102,241,0.4)] transition-all active:scale-[0.98]"
             >
               <span>Deploy Agent</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -772,63 +781,93 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
         {/* Metrics Bar */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Total Agents */}
-          <div className="p-4 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-2xl flex items-center justify-between shadow-sm">
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Total Agents</p>
-              <p className="text-2xl font-bold">{dbTotalAgents}</p>
+          <div className="bg-gradient-to-br from-zinc-900 to-zinc-950/60 border border-zinc-800/80 hover:border-indigo-500/30 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 rounded-[20px] p-5 flex items-center justify-between group">
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Total Agents</p>
+              <p className="text-3xl font-bold tracking-tight font-sans text-zinc-100">{dbTotalAgents}</p>
             </div>
-            <svg className="w-12 h-6 text-zinc-400 shrink-0" viewBox="0 0 100 30">
-              <path d="M 0 25 L 20 22 L 40 18 L 60 14 L 80 8 L 100 4" fill="none" stroke="currentColor" strokeWidth="2" />
+            <svg className="w-14 h-8 text-zinc-550 shrink-0 overflow-visible" viewBox="0 0 100 30">
+              <defs>
+                <linearGradient id="totalAgentsGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#818CF8" stopOpacity="0.2" />
+                  <stop offset="100%" stopColor="#818CF8" stopOpacity="1" />
+                </linearGradient>
+              </defs>
+              <path d="M 0 25 L 20 22 L 40 18 L 60 14 L 80 8 L 100 4" fill="none" stroke="url(#totalAgentsGrad)" strokeWidth="2.5" strokeLinecap="round" />
             </svg>
           </div>
 
           {/* Active Fleet */}
-          <div className="p-4 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-2xl flex items-center justify-between shadow-sm">
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Active Fleet</p>
-              <p className="text-2xl font-bold text-emerald-500">{dbActiveAgents + dbRunningAgents}</p>
+          <div className="bg-gradient-to-br from-zinc-900 to-zinc-950/60 border border-zinc-800/80 hover:border-emerald-500/30 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 rounded-[20px] p-5 flex items-center justify-between group">
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Active Fleet</p>
+              <p className="text-3xl font-bold tracking-tight font-sans text-emerald-400">{dbActiveAgents + dbRunningAgents}</p>
             </div>
-            <svg className="w-12 h-6 text-emerald-500 shrink-0" viewBox="0 0 100 30">
-              <path d="M 0 15 Q 25 5, 50 15 T 100 15" fill="none" stroke="currentColor" strokeWidth="2" />
+            <svg className="w-14 h-8 text-emerald-500 shrink-0 overflow-visible" viewBox="0 0 100 30">
+              <defs>
+                <linearGradient id="activeFleetGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#34D399" stopOpacity="0.2" />
+                  <stop offset="100%" stopColor="#34D399" stopOpacity="1" />
+                </linearGradient>
+              </defs>
+              <path d="M 0 15 Q 25 5, 50 15 T 100 15" fill="none" stroke="url(#activeFleetGrad)" strokeWidth="2.5" strokeLinecap="round" />
             </svg>
           </div>
 
           {/* Paused */}
-          <div className="p-4 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-2xl flex items-center justify-between shadow-sm">
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Paused</p>
-              <p className="text-2xl font-bold text-amber-500">{dbPausedAgents}</p>
+          <div className="bg-gradient-to-br from-zinc-900 to-zinc-950/60 border border-zinc-800/80 hover:border-amber-500/30 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 rounded-[20px] p-5 flex items-center justify-between group">
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Paused</p>
+              <p className="text-3xl font-bold tracking-tight font-sans text-amber-400">{dbPausedAgents}</p>
             </div>
-            <svg className="w-12 h-6 text-amber-500 shrink-0" viewBox="0 0 100 30">
-              <path d="M 0 20 L 50 20 L 100 20" fill="none" stroke="currentColor" strokeWidth="2" />
+            <svg className="w-14 h-8 text-amber-500 shrink-0 overflow-visible" viewBox="0 0 100 30">
+              <defs>
+                <linearGradient id="pausedGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#FBBF24" stopOpacity="0.2" />
+                  <stop offset="100%" stopColor="#FBBF24" stopOpacity="1" />
+                </linearGradient>
+              </defs>
+              <path d="M 0 20 L 50 20 L 100 20" fill="none" stroke="url(#pausedGrad)" strokeWidth="2.5" strokeLinecap="round" />
             </svg>
           </div>
 
           {/* Active Alerts */}
-          <div className={`p-4 bg-[var(--bg-surface)] border rounded-2xl flex items-center justify-between shadow-sm transition-colors ${
-            dbErrorAgents > 0 ? "border-red-500/25 bg-red-500/5 animate-pulse-health" : "border-[var(--border-color)]"
+          <div className={`bg-gradient-to-br from-zinc-900 to-zinc-950/60 border shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 rounded-[20px] p-5 flex items-center justify-between group ${
+            dbErrorAgents > 0 ? "border-red-500 bg-red-950/10" : "border-zinc-800/80 hover:border-red-500/30"
           }`}>
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Active Alerts</p>
-              <p className={`text-2xl font-bold ${dbErrorAgents > 0 ? "text-red-500" : "text-[var(--text-primary)]"}`}>{dbErrorAgents}</p>
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Active Alerts</p>
+              <p className={`text-3xl font-bold tracking-tight font-sans ${dbErrorAgents > 0 ? "text-red-400 animate-pulse" : "text-zinc-100"}`}>{dbErrorAgents}</p>
             </div>
-            <svg className={`w-12 h-6 shrink-0 ${dbErrorAgents > 0 ? "text-red-500" : "text-zinc-300"}`} viewBox="0 0 100 30">
+            <svg className="w-14 h-8 shrink-0 overflow-visible text-red-500" viewBox="0 0 100 30">
+              <defs>
+                <linearGradient id="alertsGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#EF4444" stopOpacity="0.2" />
+                  <stop offset="100%" stopColor="#EF4444" stopOpacity="1" />
+                </linearGradient>
+              </defs>
               {dbErrorAgents > 0 ? (
-                <path d="M 0 25 L 70 25 L 80 5 L 90 25 L 100 25" fill="none" stroke="currentColor" strokeWidth="2" />
+                <path d="M 0 25 L 70 25 L 80 5 L 90 25 L 100 25" fill="none" stroke="url(#alertsGrad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               ) : (
-                <path d="M 0 25 L 100 25" fill="none" stroke="currentColor" strokeWidth="2" />
+                <path d="M 0 25 L 100 25" fill="none" stroke="url(#alertsGrad)" strokeWidth="2.5" strokeLinecap="round" />
               )}
             </svg>
           </div>
 
           {/* Total Scans */}
-          <div className="p-4 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-2xl flex items-center justify-between shadow-sm">
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Total Scans</p>
-              <p className="text-2xl font-bold text-indigo-500">{dbTotalRuns}</p>
+          <div className="bg-gradient-to-br from-zinc-900 to-zinc-950/60 border border-zinc-800/80 hover:border-indigo-500/30 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 rounded-[20px] p-5 flex items-center justify-between group">
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Total Scans</p>
+              <p className="text-3xl font-bold tracking-tight font-sans text-indigo-400">{dbTotalRuns}</p>
             </div>
-            <svg className="w-12 h-6 text-indigo-500 shrink-0" viewBox="0 0 100 30">
-              <path d="M 0 25 L 15 10 L 30 22 L 45 5 L 60 18 L 75 12 L 90 28 L 100 15" fill="none" stroke="currentColor" strokeWidth="2" />
+            <svg className="w-14 h-8 text-indigo-400 shrink-0 overflow-visible" viewBox="0 0 100 30">
+              <defs>
+                <linearGradient id="scansGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#818CF8" stopOpacity="0.2" />
+                  <stop offset="100%" stopColor="#A78BFA" stopOpacity="1" />
+                </linearGradient>
+              </defs>
+              <path d="M 0 25 L 15 10 L 30 22 L 45 5 L 60 18 L 75 12 L 90 28 L 100 15" fill="none" stroke="url(#scansGrad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
         </div>
@@ -840,66 +879,66 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
             {/* Filters panel */}
             <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
               <div className="relative w-full sm:max-w-xs font-medium">
-                <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
+                <Search className="absolute left-3.5 top-3 w-4 h-4 text-zinc-500" />
                 <input
                   type="text"
                   value={dbSearchQuery}
                   onChange={(e) => setDbSearchQuery(e.target.value)}
                   placeholder="Search agent title, prompt..."
-                  className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-colors"
                 />
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto font-medium">
+              <div className="flex items-center gap-2.5 w-full sm:w-auto font-medium">
                 <select
                   value={dbStatusFilter}
                   onChange={(e: any) => setDbStatusFilter(e.target.value)}
-                  className="px-2.5 py-2 text-xs rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] cursor-pointer"
+                  className="px-3 py-2.5 text-xs rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-300 focus:outline-none focus:border-indigo-500/50 cursor-pointer transition-colors"
                 >
-                  <option value="all">All Statuses</option>
-                  <option value="active">Active/Running</option>
-                  <option value="paused">Paused</option>
-                  <option value="error">Error</option>
+                  <option value="all" className="bg-zinc-900">All Statuses</option>
+                  <option value="active" className="bg-zinc-900">Active/Running</option>
+                  <option value="paused" className="bg-zinc-900">Paused</option>
+                  <option value="error" className="bg-zinc-900">Error</option>
                 </select>
 
                 <select
                   value={dbCategoryFilter}
                   onChange={(e) => setDbCategoryFilter(e.target.value)}
-                  className="px-2.5 py-2 text-xs rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] cursor-pointer"
+                  className="px-3 py-2.5 text-xs rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-300 focus:outline-none focus:border-indigo-500/50 cursor-pointer transition-colors"
                 >
-                  <option value="all">All Categories</option>
-                  <option value="finance">Finance</option>
-                  <option value="news">News</option>
-                  <option value="cybersecurity">Cybersecurity</option>
-                  <option value="competitive">Competitive Intel</option>
-                  <option value="research">Academic/Research</option>
+                  <option value="all" className="bg-zinc-900">All Categories</option>
+                  <option value="finance" className="bg-zinc-900">Finance</option>
+                  <option value="news" className="bg-zinc-900">News</option>
+                  <option value="cybersecurity" className="bg-zinc-900">Cybersecurity</option>
+                  <option value="competitive" className="bg-zinc-900">Competitive Intel</option>
+                  <option value="research" className="bg-zinc-900">Academic/Research</option>
                 </select>
               </div>
             </div>
 
             {/* Bulk Action Toolbar */}
             {dbSelectedIds.size > 0 && (
-              <div className="flex items-center justify-between p-3 rounded-xl border border-[var(--accent)]/15 bg-[var(--accent-subtle)] text-[var(--accent)] animate-fade-in-up">
-                <div className="flex items-center gap-2">
-                  <CheckSquare className="w-4 h-4 cursor-pointer" onClick={() => setDbSelectedIds(new Set())} />
+              <div className="flex items-center justify-between p-3.5 px-4 rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-200 animate-fade-in-up shadow-[0_8px_20px_rgba(0,0,0,0.3)]">
+                <div className="flex items-center gap-2.5">
+                  <CheckSquare className="w-4 h-4 cursor-pointer text-indigo-400" onClick={() => setDbSelectedIds(new Set())} />
                   <span className="text-xs font-semibold">{dbSelectedIds.size} agents selected</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={bulkDbResume}
-                    className="px-2.5 py-1 text-xs font-bold bg-[var(--bg-surface)] rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-surface-hover)] cursor-pointer"
+                    className="px-3 py-1 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-100 rounded-lg border border-zinc-800 transition-colors cursor-pointer"
                   >
                     Resume
                   </button>
                   <button
                     onClick={bulkDbPause}
-                    className="px-2.5 py-1 text-xs font-bold bg-[var(--bg-surface)] rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-surface-hover)] cursor-pointer"
+                    className="px-3 py-1 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-100 rounded-lg border border-zinc-800 transition-colors cursor-pointer"
                   >
                     Pause
                   </button>
                   <button
                     onClick={bulkDbDelete}
-                    className="px-2.5 py-1 text-xs font-bold bg-red-500/10 text-red-500 rounded-lg border border-red-500/20 hover:bg-red-500/20 cursor-pointer"
+                    className="px-3 py-1 text-xs font-semibold bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/25 transition-colors cursor-pointer"
                   >
                     Delete
                   </button>
@@ -908,162 +947,185 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
             )}
 
             {/* Agent Table */}
-            <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl shadow-sm overflow-hidden">
+            <div className="border border-zinc-850 bg-zinc-900/30 rounded-[20px] shadow-lg overflow-hidden">
               {Object.keys(groupedDbTasks).length === 0 ? (
-                <div className="text-center py-16 text-xs text-[var(--text-tertiary)] bg-[var(--bg-surface)] font-medium">
+                <div className="text-center py-20 text-xs text-zinc-500 font-medium">
                   {dbTotalAgents === 0 ? "No agents deployed yet. Configure one below to start your fleet." : "No agents match the current filter query."}
                 </div>
               ) : (
-                <div className="divide-y divide-[var(--border-color)]">
+                <div className="divide-y divide-zinc-800/80">
                   {Object.entries(groupedDbTasks).map(([cat, catTasks]) => {
                     const meta = getCategoryMeta(cat);
                     const CatIcon = meta.icon;
                     const isCollapsed = dbCollapsedCategories.has(cat);
+                    
+                    // Match left border to category accent color
+                    let borderLeftClass = "border-l-[4px] border-l-indigo-500/80";
+                    if (cat === "finance") borderLeftClass = "border-l-[4px] border-l-amber-500/80";
+                    else if (cat === "news") borderLeftClass = "border-l-[4px] border-l-blue-500/80";
+                    else if (cat === "cybersecurity") borderLeftClass = "border-l-[4px] border-l-red-500/80";
+                    else if (cat === "competitive") borderLeftClass = "border-l-[4px] border-l-emerald-500/80";
 
                     return (
                       <div key={cat} className="space-y-0.5">
                         {/* Collapsible Group Header */}
                         <div 
                           onClick={() => toggleCategoryCollapse(cat)}
-                          className="flex items-center justify-between p-3.5 bg-[var(--bg-primary)]/40 hover:bg-[var(--bg-primary)]/80 cursor-pointer transition-colors"
+                          className={`flex items-center justify-between px-4 py-3 bg-zinc-900/40 hover:bg-zinc-900/80 cursor-pointer transition-all duration-200 ${borderLeftClass}`}
                         >
-                          <div className="flex items-center gap-2.5">
-                            <div className={`p-1.5 rounded-lg ${meta.colorClass}`}>
-                              <CatIcon className="w-3.5 h-3.5" />
+                          <div className="flex items-center gap-3">
+                            <div className={`p-1.5 rounded-xl ${meta.colorClass} border border-current/10`}>
+                              <CatIcon className="w-4 h-4" />
                             </div>
-                            <span className="text-xs font-bold uppercase tracking-wider">{meta.title}</span>
-                            <span className="text-[10px] font-semibold text-[var(--text-tertiary)] px-2 py-0.5 rounded-full bg-[var(--bg-surface-hover)]">
+                            <span className="text-xs font-bold uppercase tracking-widest text-zinc-100">{meta.title}</span>
+                            <span className="text-[10px] font-bold text-zinc-400 px-2 py-0.5 rounded-full bg-zinc-800/80 border border-zinc-800">
                               {catTasks.length}
                             </span>
                           </div>
-                          {isCollapsed ? <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" /> : <ChevronDown className="w-4 h-4 text-[var(--text-tertiary)]" />}
+                          <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-300 ${isCollapsed ? "-rotate-90" : ""}`} />
                         </div>
 
                         {/* Group Table Rows */}
                         {!isCollapsed && (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs border-collapse">
-                              <thead>
-                                <tr className="border-b border-[var(--border-color)] text-[var(--text-tertiary)] font-bold bg-[var(--bg-surface)]">
-                                  <th className="p-3 w-8">
-                                    <button
-                                      onClick={() => toggleDbSelectAll(catTasks)}
-                                      className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer"
-                                    >
-                                      {dbSelectedIds.size === catTasks.length ? <CheckSquare className="w-4 h-4 text-[var(--accent)]" /> : <Square className="w-4 h-4" />}
-                                    </button>
-                                  </th>
-                                  <th className="p-3">Agent Name</th>
-                                  <th className="p-3">Schedule</th>
-                                  <th className="p-3">Run Count</th>
-                                  <th className="p-3">Last Active</th>
-                                  <th className="p-3">Status</th>
-                                  <th className="p-3 text-right">Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-[var(--border-subtle)]">
-                                {catTasks.map((task) => {
-                                  const isSelected = dbSelectedIds.has(task.id);
-                                  const isEditing = dbEditingId === task.id;
+                          <div className="p-4 bg-zinc-950/20 border-t border-zinc-800/40 space-y-3">
+                            {/* Card Selection Toolbar */}
+                            <div className="flex items-center justify-between px-2 pb-1 text-[11px] font-semibold">
+                              <button
+                                onClick={() => toggleDbSelectAll(catTasks)}
+                                className="text-zinc-500 hover:text-zinc-300 cursor-pointer select-none transition-colors flex items-center gap-1.5"
+                              >
+                                {dbSelectedIds.size === catTasks.length ? (
+                                  <CheckSquare className="w-4 h-4 text-[var(--accent)]" />
+                                ) : (
+                                  <Square className="w-4 h-4" />
+                                )}
+                                <span>Select All ({catTasks.length})</span>
+                              </button>
+                            </div>
 
-                                  return (
-                                    <tr 
-                                      key={task.id} 
-                                      className={`hover:bg-[var(--bg-surface-hover)]/30 transition-colors ${
-                                        isSelected ? "bg-[var(--accent-subtle)]/40" : ""
-                                      }`}
-                                    >
-                                      {/* Checkbox */}
-                                      <td className="p-3">
-                                        <button 
-                                          onClick={() => toggleDbSelectOne(task.id)}
-                                          className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer"
-                                        >
-                                          {isSelected ? <CheckSquare className="w-4 h-4 text-[var(--accent)]" /> : <Square className="w-4 h-4" />}
-                                        </button>
-                                      </td>
+                            {/* Cards Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                              {catTasks.map((task) => {
+                                const isSelected = dbSelectedIds.has(task.id);
+                                const isEditing = dbEditingId === task.id;
 
-                                      {/* Title / Rename */}
-                                      <td className="p-3 font-semibold text-[var(--text-primary)]">
-                                        {isEditing ? (
-                                          <div className="flex items-center gap-1.5">
-                                            <input
-                                              type="text"
-                                              value={dbEditTitle}
-                                              onChange={(e) => setDbEditTitle(e.target.value)}
-                                              onKeyDown={(e) => {
-                                                if (e.key === "Enter") saveDbRename(task.id);
-                                                else if (e.key === "Escape") setDbEditingId(null);
-                                              }}
-                                              className="px-2 py-1 text-xs rounded border border-[var(--accent)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:outline-none max-w-[150px]"
-                                              autoFocus
-                                            />
-                                            <button onClick={() => saveDbRename(task.id)} className="p-1 text-emerald-500 hover:bg-emerald-500/10 rounded cursor-pointer">
-                                              <Check className="w-3.5 h-3.5" />
-                                            </button>
-                                            <button onClick={() => setDbEditingId(null)} className="p-1 text-red-500 hover:bg-red-500/10 rounded cursor-pointer">
-                                              <X className="w-3.5 h-3.5" />
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center gap-1.5 group/title">
-                                            <button
-                                              onClick={() => {
-                                                setSelectedAgentId(task.id);
-                                                setView("agent-detail");
-                                              }}
-                                              className="hover:text-[var(--accent)] text-left cursor-pointer truncate max-w-[180px]"
-                                            >
-                                              {task.title}
-                                            </button>
-                                            <button 
-                                              onClick={() => startDbEditing(task)}
-                                              className="opacity-0 group-hover/title:opacity-100 p-0.5 rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer transition-opacity"
-                                            >
-                                              <Edit2 className="w-3 h-3" />
-                                            </button>
-                                          </div>
-                                        )}
-                                      </td>
+                                // Custom glow shadows matching status
+                                let statusShadow = "hover:shadow-indigo-500/5";
+                                if (task.status === "active" || task.status === "running") statusShadow = "hover:shadow-emerald-500/5";
+                                else if (task.status === "paused") statusShadow = "hover:shadow-amber-500/5";
+                                else if (task.status === "error") statusShadow = "hover:shadow-red-500/5";
 
-                                      {/* Schedule */}
-                                      <td className="p-3 text-[var(--text-secondary)]">
-                                        <span className="inline-flex items-center gap-1 text-[11px] font-medium">
-                                          <Clock className="w-3 h-3 text-[var(--text-tertiary)]" />
-                                          {task.schedule.label}
-                                        </span>
-                                      </td>
+                                return (
+                                  <div
+                                    key={task.id}
+                                    className={`bg-zinc-900/90 border rounded-2xl p-4 flex flex-col justify-between min-h-[195px] transition-all duration-300 group relative hover:-translate-y-1 hover:scale-[1.01] hover:shadow-lg ${statusShadow} ${
+                                      isSelected 
+                                        ? "border-[var(--accent)] bg-[var(--accent-subtle)]/15 shadow-sm" 
+                                        : "border-zinc-850 hover:border-zinc-700"
+                                    }`}
+                                  >
+                                    {/* Top Row: Checkbox, Name, Status */}
+                                    <div className="space-y-2.5">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          {/* Checkbox */}
+                                          <button 
+                                            onClick={() => toggleDbSelectOne(task.id)}
+                                            className="text-zinc-500 hover:text-zinc-300 cursor-pointer shrink-0 transition-colors"
+                                          >
+                                            {isSelected ? (
+                                              <CheckSquare className="w-4.5 h-4.5 text-[var(--accent)]" />
+                                            ) : (
+                                              <Square className="w-4.5 h-4.5 opacity-60 group-hover:opacity-100" />
+                                            )}
+                                          </button>
+                                          
+                                          {/* Title / Rename */}
+                                          {isEditing ? (
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                              <input
+                                                type="text"
+                                                value={dbEditTitle}
+                                                onChange={(e) => setDbEditTitle(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === "Enter") saveDbRename(task.id);
+                                                  else if (e.key === "Escape") setDbEditingId(null);
+                                                }}
+                                                className="px-2 py-0.5 text-xs rounded border border-[var(--accent)] bg-zinc-950 text-zinc-105 focus:outline-none w-full max-w-[150px]"
+                                                autoFocus
+                                              />
+                                              <button onClick={() => saveDbRename(task.id)} className="p-1 text-emerald-450 hover:bg-emerald-500/10 rounded cursor-pointer shrink-0">
+                                                <Check className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button onClick={() => setDbEditingId(null)} className="p-1 text-red-405 hover:bg-red-500/10 rounded cursor-pointer shrink-0">
+                                                <X className="w-3.5 h-3.5" />
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center gap-1 min-w-0 group/title">
+                                              <button
+                                                onClick={() => {
+                                                  setSelectedAgentId(task.id);
+                                                  setView("agent-detail");
+                                                }}
+                                                className="font-semibold text-[13px] text-zinc-100 hover:text-indigo-400 text-left cursor-pointer line-clamp-1 min-w-0 transition-colors tracking-wide"
+                                                title={task.title}
+                                              >
+                                                {task.title}
+                                              </button>
+                                              <button 
+                                                onClick={() => startDbEditing(task)}
+                                                className="opacity-0 group-hover/title:opacity-100 p-0.5 rounded text-zinc-500 hover:text-zinc-300 cursor-pointer transition-opacity"
+                                              >
+                                                <Edit2 className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                        
+                                        {/* Status Badge */}
+                                        <div className="shrink-0">
+                                          {getStatusBadge(task.status)}
+                                        </div>
+                                      </div>
 
-                                      {/* Run Count */}
-                                      <td className="p-3 font-medium text-[var(--text-secondary)] text-center w-20">
-                                        {task.runCount || 0}
-                                      </td>
+                                      {/* Prompt/Target Preview */}
+                                      <p className="text-xs text-zinc-400 group-hover:text-zinc-300 transition-colors line-clamp-2 leading-relaxed min-h-[36px] pl-7 font-normal">
+                                        {task.prompt || task.target || "No search prompt defined."}
+                                      </p>
+                                    </div>
 
-                                      {/* Last Active */}
-                                      <td className="p-3 text-[var(--text-secondary)] text-[11px] font-medium">
-                                        {task.lastRunAt ? formatRelativeTime(task.lastRunAt) : "Never"}
-                                      </td>
+                                    {/* Bottom Row: Stats & Action buttons */}
+                                    <div className="mt-4 pt-3.5 border-t border-zinc-800/80 flex items-center justify-between">
+                                      {/* Execution Stats */}
+                                      <div className="flex flex-col gap-1 text-[10px] text-zinc-500 font-medium tracking-wide">
+                                        <div className="flex items-center gap-1.5">
+                                          <Clock className="w-3.5 h-3.5 text-zinc-500" strokeWidth={2} />
+                                          <span className="uppercase text-[9px] font-semibold text-zinc-400 bg-zinc-800/50 px-1.5 py-0.2 rounded border border-zinc-850">{task.schedule.label}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                          <Activity className="w-3.5 h-3.5 text-indigo-400" strokeWidth={2} />
+                                          <span>{task.runCount || 0} runs · {task.lastRunAt ? formatRelativeTime(task.lastRunAt) : "Never"}</span>
+                                        </div>
+                                      </div>
 
-                                      {/* Status Badge */}
-                                      <td className="p-3">
-                                        {getStatusBadge(task.status)}
-                                      </td>
-
-                                      {/* Quick Actions */}
-                                      <td className="p-3 text-right space-x-1 min-w-[140px]">
+                                      {/* Actions */}
+                                      <div className="flex items-center gap-0.5">
+                                        {/* Run Now */}
                                         <button
                                           onClick={() => runTask(task.id)}
-                                          className="p-1.5 rounded hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer inline-flex"
+                                          className="p-1.5 rounded-lg text-zinc-450 hover:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer inline-flex transition-colors"
                                           title="Run Scan Now"
                                           disabled={task.status === "running"}
                                         >
-                                          <Play className={`w-3.5 h-3.5 ${task.status === "running" ? "text-zinc-300" : "fill-current"}`} />
+                                          <Play className={`w-3.5 h-3.5 ${task.status === "running" ? "text-zinc-650 opacity-30" : "fill-current"}`} />
                                         </button>
 
+                                        {/* Pause / Resume */}
                                         {task.status === "paused" ? (
                                           <button
                                             onClick={() => setTaskStatus(task.id, "active")}
-                                            className="p-1.5 rounded hover:bg-[var(--bg-surface-hover)] text-emerald-500 cursor-pointer inline-flex"
+                                            className="p-1.5 rounded-lg text-zinc-450 hover:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer inline-flex transition-colors"
                                             title="Resume Agent"
                                           >
                                             <Play className="w-3.5 h-3.5" />
@@ -1071,7 +1133,7 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
                                         ) : (
                                           <button
                                             onClick={() => setTaskStatus(task.id, "paused")}
-                                            className="p-1.5 rounded hover:bg-[var(--bg-surface-hover)] text-amber-500 cursor-pointer inline-flex"
+                                            className="p-1.5 rounded-lg text-zinc-450 hover:text-amber-400 hover:bg-amber-500/10 cursor-pointer inline-flex transition-colors"
                                             title="Pause Agent"
                                             disabled={task.status === "running"}
                                           >
@@ -1079,34 +1141,36 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
                                           </button>
                                         )}
 
+                                        {/* View detail */}
                                         <button
                                           onClick={() => {
                                             setSelectedAgentId(task.id);
                                             setView("agent-detail");
                                           }}
-                                          className="p-1.5 rounded hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer inline-flex"
+                                          className="p-1.5 rounded-lg text-zinc-450 hover:text-indigo-400 hover:bg-indigo-500/10 cursor-pointer inline-flex transition-colors"
                                           title="View Reports & History"
                                         >
                                           <FileText className="w-3.5 h-3.5" />
                                         </button>
 
+                                        {/* Delete */}
                                         <button
                                           onClick={() => {
                                             if (confirm(`Delete agent "${task.title}"?`)) {
                                               deleteTask(task.id);
                                             }
                                           }}
-                                          className="p-1.5 rounded hover:bg-red-500/10 text-red-500 hover:text-red-600 cursor-pointer inline-flex"
+                                          className="p-1.5 rounded-lg text-zinc-450 hover:text-red-405 hover:bg-red-500/10 cursor-pointer inline-flex transition-colors"
                                           title="Delete Agent"
                                         >
                                           <Trash2 className="w-3.5 h-3.5" />
                                         </button>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1120,35 +1184,49 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
           {/* Right Column: System Health (1/3) */}
           <div className="space-y-6">
             {/* System Status details */}
-            <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[220px]">
-              <div className="space-y-4">
-                <div className="flex items-start gap-2.5">
-                  <span className={`inline-block w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${
-                    systemStatus === "healthy" ? "bg-[var(--status-healthy)] animate-pulse-health" :
-                    systemStatus === "issues" ? "bg-[var(--status-critical)]" : "bg-[var(--status-warning)]"
-                  }`} />
+            <div className="bg-gradient-to-br from-zinc-900 to-zinc-950/60 border border-zinc-800/80 rounded-[20px] p-5 shadow-lg flex flex-col justify-between min-h-[220px] relative overflow-hidden group">
+              {/* Soft colorful blur glow in upper right corner */}
+              <div className={`absolute top-0 right-0 w-32 h-32 rounded-full filter blur-[50px] opacity-10 -mr-10 -mt-10 transition-colors duration-500 ${
+                systemStatus === "healthy" ? "bg-emerald-500" :
+                systemStatus === "issues" ? "bg-red-500" : "bg-amber-500"
+              }`} />
+              
+              <div className="space-y-4 relative z-10">
+                <div className="flex items-start gap-3">
+                  <span className="relative flex h-3 w-3 mt-1.5 shrink-0">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                      systemStatus === "healthy" ? "bg-emerald-400" :
+                      systemStatus === "issues" ? "bg-red-400" : "bg-amber-400"
+                    }`}></span>
+                    <span className={`relative inline-flex rounded-full h-3 w-3 ${
+                      systemStatus === "healthy" ? "bg-emerald-500" :
+                      systemStatus === "issues" ? "bg-red-500" : "bg-amber-500"
+                    }`}></span>
+                  </span>
+                  
                   <div className="space-y-1">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-100">
                       {systemStatus === "healthy" ? "ALL AUTOPILOTS OPERATIONAL" :
                        systemStatus === "issues" ? `${dbErrorAgents} SCAN ISSUES ACTIVE` : "SYSTEM STANDBY - READY TO DEPLOY"}
                     </h4>
-                    <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                    <p className="text-[11px] text-zinc-400 leading-relaxed font-medium">
                       {dbTotalAgents} agents configured · {dbActiveAgents} active scans · {dbTotalRuns} total scans completed
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2 pt-4 border-t border-[var(--border-color)]">
-                <div className="flex items-center justify-between text-[11px] font-bold text-[var(--text-secondary)] font-sans">
+              <div className="space-y-2.5 pt-4 border-t border-zinc-800/80 relative z-10">
+                <div className="flex items-center justify-between text-[11px] font-bold text-zinc-450 font-sans tracking-wide">
                   <span>Fleet Health</span>
-                  <span className="text-[var(--text-primary)]">{healthPercentage}%</span>
+                  <span className="text-zinc-100">{healthPercentage}%</span>
                 </div>
-                <div className="w-full bg-[var(--bg-primary)] h-1.5 rounded-full overflow-hidden border border-[var(--border-color)]">
+                <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-800/50 p-[1px]">
                   <div 
-                    className={`h-full transition-all duration-500 ${
-                      systemStatus === "healthy" ? "bg-[var(--status-healthy)]" :
-                      systemStatus === "issues" ? "bg-[var(--status-critical)]" : "bg-[var(--status-warning)]"
+                    className={`h-full rounded-full transition-all duration-700 ease-out shadow-[0_0_8px_rgba(16,185,129,0.4)] ${
+                      systemStatus === "healthy" ? "bg-gradient-to-r from-emerald-500 to-teal-400" :
+                      systemStatus === "issues" ? "bg-gradient-to-r from-red-500 to-orange-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" : 
+                      "bg-gradient-to-r from-amber-500 to-orange-400 shadow-[0_0_8px_rgba(245,158,11,0.4)]"
                     }`}
                     style={{ width: `${healthPercentage}%` }}
                   />
@@ -1217,46 +1295,46 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
       </div>
 
       {/* SECTION 4: Scan Execution Density (Last 7 Days) */}
-      <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-5 shadow-sm space-y-4 pt-6 border-t">
-        <div className="flex justify-between items-center border-b border-[var(--border-color)] pb-3">
+      <div className="border border-zinc-800/80 bg-zinc-900/40 rounded-[20px] p-6 shadow-md hover:shadow-lg transition-all duration-300 space-y-5">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b border-zinc-800/60 pb-3.5 gap-3">
           <div>
-            <h4 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
+            <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2 font-sans">
               <SlidersHorizontal className="w-4 h-4 text-[var(--accent)]" />
               Scan Execution Density (Last 7 Days)
             </h4>
-            <p className="text-[10px] text-[var(--text-tertiary)]">Visual representation of background agent polling intervals and runs.</p>
+            <p className="text-[10px] text-zinc-500 mt-0.5 font-medium">Visual representation of background agent polling intervals and runs.</p>
           </div>
-          <div className="flex items-center gap-1.5 text-[9px] text-[var(--text-tertiary)] font-medium">
+          <div className="flex items-center gap-2 text-[10px] text-zinc-500 font-semibold tracking-wide">
             <span>Fewer</span>
-            <span className="w-2.5 h-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-sm" />
-            <span className="w-2.5 h-2.5 bg-[var(--accent)]/10 rounded-sm" />
-            <span className="w-2.5 h-2.5 bg-[var(--accent)]/40 rounded-sm" />
-            <span className="w-2.5 h-2.5 bg-[var(--accent)]/70 rounded-sm" />
-            <span className="w-2.5 h-2.5 bg-[var(--accent)] rounded-sm" />
+            <span className="w-3 h-3 bg-zinc-950/60 border border-zinc-800/40 rounded-sm" />
+            <span className="w-3 h-3 bg-[var(--accent)]/15 border border-[var(--accent)]/10 rounded-sm" />
+            <span className="w-3 h-3 bg-[var(--accent)]/40 border border-[var(--accent)]/20 rounded-sm" />
+            <span className="w-3 h-3 bg-[var(--accent)]/70 border border-[var(--accent)]/35 rounded-sm" />
+            <span className="w-3 h-3 bg-[var(--accent)] border border-[var(--accent)]/50 rounded-sm shadow-[0_0_6px_rgba(129,140,248,0.3)]" />
             <span>More</span>
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {dbHeatmapGrid.map((row) => (
-            <div key={row.label} className="flex items-center gap-2 group">
-              <span className="w-8 text-[10px] font-semibold text-[var(--text-tertiary)] text-right">{row.label}</span>
-              <div className="grid grid-cols-24 gap-1 w-full font-medium">
+            <div key={row.label} className="flex items-center gap-3.5 group">
+              <span className="w-8 text-[11px] font-bold text-zinc-500 text-right uppercase tracking-wider">{row.label}</span>
+              <div className="grid grid-cols-24 gap-1 w-full">
                 {row.hours.map((count, hour) => {
-                  let shadeClass = "bg-[var(--bg-primary)] border border-[var(--border-color)]/60";
-                  if (count > 0 && count <= 1) shadeClass = "bg-[var(--accent)]/20";
-                  else if (count > 1 && count <= 3) shadeClass = "bg-[var(--accent)]/45";
-                  else if (count > 3 && count <= 5) shadeClass = "bg-[var(--accent)]/70";
-                  else if (count > 5) shadeClass = "bg-[var(--accent)]";
+                  let shadeClass = "bg-zinc-950/60 border border-zinc-800/40 hover:border-zinc-700/60";
+                  if (count > 0 && count <= 1) shadeClass = "bg-[var(--accent)]/15 border border-[var(--accent)]/10 shadow-[0_0_4px_rgba(129,140,248,0.05)]";
+                  else if (count > 1 && count <= 3) shadeClass = "bg-[var(--accent)]/40 border border-[var(--accent)]/20 shadow-[0_0_6px_rgba(129,140,248,0.15)]";
+                  else if (count > 3 && count <= 5) shadeClass = "bg-[var(--accent)]/70 border border-[var(--accent)]/35 shadow-[0_0_8px_rgba(129,140,248,0.25)]";
+                  else if (count > 5) shadeClass = "bg-[var(--accent)] border border-[var(--accent)]/50 shadow-[0_0_12px_rgba(129,140,248,0.5)]";
 
                   return (
                     <div
                       key={hour}
-                      className={`h-3.5 rounded-sm transition-all relative group/hour ${shadeClass}`}
+                      className={`h-3.5 rounded-[3px] transition-all relative group/hour cursor-pointer ${shadeClass}`}
                       title={`${row.dateStr} at ${hour}:00: ${count} executions`}
                     >
-                      <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1.5 px-2 py-1 text-[9px] font-semibold text-white bg-zinc-900 rounded shadow-md pointer-events-none opacity-0 group-hover/hour:opacity-100 transition-opacity whitespace-nowrap z-10 font-sans">
-                        {hour}:00: {count} runs
+                      <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2.5 py-1 text-[9px] font-bold text-zinc-200 bg-zinc-950 border border-zinc-800 rounded-lg shadow-xl pointer-events-none opacity-0 group-hover/hour:opacity-100 transition-all scale-95 group-hover/hour:scale-100 whitespace-nowrap z-20 font-sans">
+                        {hour}:00 · {count} runs
                       </span>
                     </div>
                   );
@@ -1265,7 +1343,7 @@ export default function WelcomeView({ onPromptFill, onPromptSubmit, onDeployClic
             </div>
           ))}
           
-          <div className="flex justify-between items-center pl-10 text-[9px] text-[var(--text-tertiary)] pt-1 border-t border-[var(--border-subtle)] font-medium">
+          <div className="flex justify-between items-center pl-12 text-[9px] font-bold text-zinc-550 pt-2 border-t border-zinc-800/60 tracking-wider">
             <span>12:00 AM</span>
             <span>4:00 AM</span>
             <span>8:00 AM</span>

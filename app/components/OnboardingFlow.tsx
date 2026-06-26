@@ -92,7 +92,7 @@ const STARTER_AGENTS: StarterAgent[] = [
 ];
 
 export default function OnboardingFlow() {
-  const { addTask, completeOnboarding, setView, triggerCommand, userProfile } = useTaskStore();
+  const { addTask, completeOnboarding, setView, userProfile } = useTaskStore();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [deployedName, setDeployedName] = useState("");
 
@@ -128,10 +128,6 @@ export default function OnboardingFlow() {
 
     // Add locally for feedback
     addTask(newTask);
-
-    // Trigger command upstream
-    const commandText = `track "${agent.title}" every ${agent.schedule === "Every hour" ? "1 hour" : agent.schedule.toLowerCase()}: ${agent.prompt}`;
-    triggerCommand(commandText);
 
     setDeployedName(agent.title);
     setStep(3);
