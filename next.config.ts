@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
         destination: "https://lab.bossint.ai/api/auth/:path*",
       },
       {
+        source: "/api/agents",
+        destination: "https://lab.bossint.ai/api/agents",
+      },
+      {
         source: "/api/agents/:path*",
         destination: "https://lab.bossint.ai/api/agents/:path*",
       },
@@ -42,6 +46,10 @@ const nextConfig: NextConfig = {
       {
         source: "/api/downloads/:path*",
         destination: "https://lab.bossint.ai/api/downloads/:path*",
+      },
+      {
+        source: "/api/users",
+        destination: "https://lab.bossint.ai/api/users",
       },
       {
         source: "/api/users/:path*",
