@@ -5,7 +5,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 interface DialogProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title: ReactNode;
   subtitle?: string;
   icon?: ReactNode;
   children: ReactNode;
@@ -137,7 +137,7 @@ export default function Dialog({
         </div>
 
         {/* Content */}
-        <div className="px-6 py-5">{children}</div>
+        <div className="px-6 py-5 overflow-y-auto" style={{ maxHeight: "calc(85vh - 80px)" }}>{children}</div>
       </div>
     </div>
   );

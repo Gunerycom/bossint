@@ -27,7 +27,28 @@ import {
   Check,
   X,
   AlertTriangle,
-  Download
+  Download,
+  Zap,
+  Eye,
+  MoreVertical,
+  Radio,
+  Target,
+  Globe,
+  TrendingUp,
+  BarChart3,
+  Layers,
+  StopCircle,
+  RotateCcw,
+  ExternalLink,
+  Settings2,
+  Bot,
+  Cpu,
+  Workflow,
+  Scale,
+  BookOpen,
+  Briefcase,
+  ShoppingCart,
+  Leaf
 } from "lucide-react";
 
 export default function DashboardView() {
@@ -61,6 +82,9 @@ export default function DashboardView() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
 
+  // Card action menu state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
   // Stat Metrics
   const totalAgents = tasks.length;
   const activeAgents = tasks.filter((t) => t.status === "active").length;
@@ -70,56 +94,60 @@ export default function DashboardView() {
   const totalRuns = tasks.reduce((sum, t) => sum + (t.runCount || 0), 0);
 
   // Category info helpers
-  const categoryDetails: Record<string, { title: string; icon: any; colorClass: string }> = {
-    finance: { title: "Finance & Markets", icon: CircleDollarSign, colorClass: "text-amber-500 bg-amber-500/10" },
-    news: { title: "News & Media", icon: Newspaper, colorClass: "text-blue-500 bg-blue-500/10" },
-    cybersecurity: { title: "Cybersecurity Threats", icon: Shield, colorClass: "text-red-500 bg-red-500/10" },
-    competitive: { title: "Competitive Intel", icon: Activity, colorClass: "text-emerald-500 bg-emerald-500/10" },
-    research: { title: "Research & Studies", icon: Compass, colorClass: "text-indigo-500 bg-indigo-500/10" },
+  const categoryDetails: Record<string, { title: string; icon: any; colorClass: string; accentHex: string; gradient: string; headerBg: string; headerBgDark: string; headerText: string }> = {
+    finance: { title: "Finance & Markets", icon: CircleDollarSign, colorClass: "text-amber-400", accentHex: "#FBBF24", gradient: "from-amber-500/20 via-orange-500/10 to-transparent", headerBg: "#FEF3C7", headerBgDark: "rgba(251,191,36,0.15)", headerText: "text-amber-800 dark:text-amber-300" },
+    news: { title: "News & Media", icon: Newspaper, colorClass: "text-sky-400", accentHex: "#38BDF8", gradient: "from-sky-500/20 via-blue-500/10 to-transparent", headerBg: "#DBEAFE", headerBgDark: "rgba(56,189,248,0.15)", headerText: "text-sky-800 dark:text-sky-300" },
+    cybersecurity: { title: "Cybersecurity Threats", icon: Shield, colorClass: "text-rose-400", accentHex: "#FB7185", gradient: "from-rose-500/20 via-red-500/10 to-transparent", headerBg: "#FFE4E6", headerBgDark: "rgba(251,113,133,0.15)", headerText: "text-rose-800 dark:text-rose-300" },
+    competitive: { title: "Competitive Intel", icon: Target, colorClass: "text-emerald-400", accentHex: "#34D399", gradient: "from-emerald-500/20 via-green-500/10 to-transparent", headerBg: "#D1FAE5", headerBgDark: "rgba(52,211,153,0.15)", headerText: "text-emerald-800 dark:text-emerald-300" },
+    research: { title: "Research & Studies", icon: BookOpen, colorClass: "text-violet-400", accentHex: "#A78BFA", gradient: "from-violet-500/20 via-purple-500/10 to-transparent", headerBg: "#EDE9FE", headerBgDark: "rgba(167,139,250,0.15)", headerText: "text-violet-800 dark:text-violet-300" },
+    brand: { title: "Brand & Reputation", icon: Sparkles, colorClass: "text-pink-400", accentHex: "#F472B6", gradient: "from-pink-500/20 via-fuchsia-500/10 to-transparent", headerBg: "#FCE7F3", headerBgDark: "rgba(244,114,182,0.15)", headerText: "text-pink-800 dark:text-pink-300" },
+    legal: { title: "Legal & Compliance", icon: Scale, colorClass: "text-slate-400", accentHex: "#94A3B8", gradient: "from-slate-500/20 via-gray-500/10 to-transparent", headerBg: "#F1F5F9", headerBgDark: "rgba(148,163,184,0.15)", headerText: "text-slate-700 dark:text-slate-300" },
+    geopolitics: { title: "Geopolitics & OSINT", icon: Globe, colorClass: "text-cyan-400", accentHex: "#22D3EE", gradient: "from-cyan-500/20 via-teal-500/10 to-transparent", headerBg: "#CFFAFE", headerBgDark: "rgba(34,211,238,0.15)", headerText: "text-cyan-800 dark:text-cyan-300" },
+    esg: { title: "ESG & Sustainability", icon: Leaf, colorClass: "text-lime-400", accentHex: "#A3E635", gradient: "from-lime-500/20 via-green-500/10 to-transparent", headerBg: "#ECFCCB", headerBgDark: "rgba(163,230,53,0.15)", headerText: "text-lime-800 dark:text-lime-300" },
+    ecommerce: { title: "E-Commerce & Retail", icon: ShoppingCart, colorClass: "text-orange-400", accentHex: "#FB923C", gradient: "from-orange-500/20 via-amber-500/10 to-transparent", headerBg: "#FFEDD5", headerBgDark: "rgba(251,146,60,0.15)", headerText: "text-orange-800 dark:text-orange-300" },
   };
 
   const getCategoryMeta = (cat?: string) => {
-    return categoryDetails[cat || "research"] || { title: "Other Research", icon: Compass, colorClass: "text-zinc-500 bg-zinc-500/10" };
+    return categoryDetails[cat || "research"] || { title: "Other Research", icon: Compass, colorClass: "text-zinc-400", accentHex: "#A1A1AA", gradient: "from-zinc-500/20 via-gray-500/10 to-transparent", headerBg: "#F4F4F5", headerBgDark: "rgba(161,161,170,0.15)", headerText: "text-zinc-700 dark:text-zinc-300" };
   };
 
-  // Helper for status badge rendering
+  // Helper for status badge rendering — premium glassmorphic badges
   const getStatusBadge = (status: TaskStatus) => {
-    switch (status) {
-      case "active":
-        return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-500 bg-emerald-500/8 px-2 py-0.5 rounded-full border border-emerald-500/15">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Active
-          </span>
-        );
-      case "running":
-        return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-indigo-500 bg-indigo-500/8 px-2 py-0.5 rounded-full border border-indigo-500/15 animate-pulse">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping" />
-            Running
-          </span>
-        );
-      case "paused":
-        return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-amber-500 bg-amber-500/8 px-2 py-0.5 rounded-full border border-amber-500/15">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            Paused
-          </span>
-        );
-      case "error":
-        return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-red-500 bg-red-500/8 px-2 py-0.5 rounded-full border border-red-500/15">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-            Error
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-zinc-500 bg-zinc-500/8 px-2 py-0.5 rounded-full border border-zinc-500/15">
-            Completed
-          </span>
-        );
-    }
+    const configs: Record<string, { label: string; dotClass: string; badgeClass: string; animate?: boolean }> = {
+      active: {
+        label: "Active",
+        dotClass: "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]",
+        badgeClass: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+      },
+      running: {
+        label: "Running",
+        dotClass: "bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.6)]",
+        badgeClass: "text-indigo-400 bg-indigo-400/10 border-indigo-400/20",
+        animate: true,
+      },
+      paused: {
+        label: "Paused",
+        dotClass: "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.6)]",
+        badgeClass: "text-amber-400 bg-amber-400/10 border-amber-400/20",
+      },
+      error: {
+        label: "Error",
+        dotClass: "bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.6)]",
+        badgeClass: "text-red-400 bg-red-400/10 border-red-400/20",
+      },
+      completed: {
+        label: "Done",
+        dotClass: "bg-zinc-400",
+        badgeClass: "text-zinc-400 bg-zinc-400/10 border-zinc-400/20",
+      },
+    };
+    const cfg = configs[status] || configs.completed;
+    return (
+      <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wide px-2.5 py-1 rounded-full border backdrop-blur-sm ${cfg.badgeClass}`}>
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dotClass} ${cfg.animate ? "animate-pulse" : ""}`} />
+        {cfg.label}
+      </span>
+    );
   };
 
   // Toggle category collapse
@@ -344,148 +372,144 @@ export default function DashboardView() {
     document.body.removeChild(link);
   };
 
+  // Get category-colored icon component for agent type
+  const getAgentTypeIcon = (task: Task) => {
+    const meta = getCategoryMeta(task.category);
+    const Icon = meta.icon;
+    return <Icon className={`w-4 h-4 ${meta.colorClass}`} strokeWidth={2} />;
+  };
+
   if (totalAgents === 0) {
     return (
-      <div className="max-w-4xl mx-auto px-6 py-16 text-center space-y-6 animate-fade-in">
-        <div className="w-16 h-16 rounded-2xl bg-[var(--bg-surface)] border border-dashed border-[var(--border-color)] flex items-center justify-center mx-auto text-[var(--text-tertiary)]">
-          <Activity className="w-8 h-8" strokeWidth={1.5} />
+      <div className="max-w-4xl mx-auto px-6 py-16 text-center space-y-8 animate-fade-in">
+        {/* Empty state hero */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center justify-center opacity-10">
+            <div className="w-48 h-48 rounded-full bg-[var(--accent)] blur-[80px]" />
+          </div>
+          <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent)]/5 border border-[var(--accent)]/20 flex items-center justify-center mx-auto shadow-lg">
+            <Bot className="w-10 h-10 text-[var(--accent)]" strokeWidth={1.5} />
+          </div>
         </div>
-        <div className="space-y-2">
-          <h3 className="text-base font-bold text-[var(--text-primary)]">No Active Agents Deployed</h3>
-          <p className="text-xs text-[var(--text-secondary)] max-w-sm mx-auto leading-relaxed">
-            You haven't scheduled any autonomous intelligence agents yet. Deploy standard presets from the templates library or build pipelines in chat.
+        <div className="space-y-3">
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">No Agents Deployed Yet</h3>
+          <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto leading-relaxed">
+            Your command center is ready. Deploy autonomous intelligence agents from the blueprint library to start monitoring.
           </p>
         </div>
         <button
           onClick={() => router.push("/explore")}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--accent)] text-white text-xs font-semibold hover:bg-[var(--accent-hover)] transition-colors cursor-pointer shadow-sm"
+          className="inline-flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-hover)] text-white text-sm font-bold hover:shadow-lg hover:shadow-[var(--accent)]/25 transition-all duration-300 cursor-pointer group"
         >
-          <Compass className="w-4 h-4" strokeWidth={1.5} />
+          <Compass className="w-4.5 h-4.5 group-hover:rotate-45 transition-transform duration-300" strokeWidth={2} />
           <span>Explore Blueprints</span>
+          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8 animate-fade-in text-[var(--text-primary)]">
+    <div className="max-w-[1440px] mx-auto px-6 py-6 space-y-6 animate-fade-in text-[var(--text-primary)]">
       
-      {/* Top Header Row */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">My Agents</h2>
-          <p className="text-xs text-[var(--text-secondary)]">Monitor and coordinate your running AI intelligence fleet.</p>
+      {/* ═══════════════ COMMAND CENTER HEADER ═══════════════ */}
+      <div className="flex flex-col md:flex-row justify-between md:items-end gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent)]/5 border border-[var(--accent)]/15">
+              <Cpu className="w-5 h-5 text-[var(--accent)]" />
+            </div>
+            <div>
+              <h2 className="text-xl font-extrabold tracking-tight">Agent Control Panel</h2>
+              <p className="text-xs text-[var(--text-tertiary)] font-medium">
+                {totalAgents} agent{totalAgents !== 1 ? "s" : ""} deployed · {activeAgents + runningAgents} operational · {totalRuns} total scans
+              </p>
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
+          {runningAgents > 0 && (
+            <button
+              onClick={stopAllAgents}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border border-red-500/20 text-red-400 bg-red-500/5 hover:bg-red-500/15 cursor-pointer transition-all duration-200"
+            >
+              <StopCircle className="w-3.5 h-3.5" />
+              <span>Kill All</span>
+            </button>
+          )}
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] cursor-pointer transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] cursor-pointer transition-all duration-200"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
+            <span>Export</span>
           </button>
           <button
             onClick={() => router.push("/explore")}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-xl bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] cursor-pointer shadow-sm transition-all"
+            className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-hover)] text-white hover:shadow-lg hover:shadow-[var(--accent)]/20 cursor-pointer transition-all duration-300 group"
           >
+            <Zap className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
             <span>Deploy Agent</span>
-            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Metrics Bar with Trend SVGs */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Total Agents */}
-        <div className="p-4 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-2xl flex items-center justify-between shadow-sm">
-          <div className="space-y-1">
-            <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Total Agents</p>
-            <p className="text-2xl font-bold">{totalAgents}</p>
+      {/* ═══════════════ LIVE METRICS STRIP ═══════════════ */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {[
+          { label: "Total Fleet", value: totalAgents, color: "text-[var(--text-primary)]", iconColor: "text-[var(--accent)]", Icon: Layers, sparkPath: "M 0 20 Q 25 10, 50 18 T 100 12", sparkColor: "var(--accent)" },
+          { label: "Operational", value: activeAgents + runningAgents, color: "text-emerald-400", iconColor: "text-emerald-400", Icon: Radio, sparkPath: "M 0 22 Q 20 8, 40 15 T 80 6 L 100 10", sparkColor: "#34D399" },
+          { label: "Paused", value: pausedAgents, color: "text-amber-400", iconColor: "text-amber-400", Icon: Pause, sparkPath: "M 0 15 L 50 15 L 100 15", sparkColor: "#FBBF24" },
+          { label: "Alerts", value: errorAgents, color: errorAgents > 0 ? "text-red-400" : "text-[var(--text-tertiary)]", iconColor: errorAgents > 0 ? "text-red-400" : "text-zinc-500", Icon: AlertTriangle, sparkPath: errorAgents > 0 ? "M 0 20 L 70 20 L 80 4 L 90 20 L 100 20" : "M 0 22 L 100 22", sparkColor: errorAgents > 0 ? "#F87171" : "#71717A" },
+          { label: "Total Scans", value: totalRuns, color: "text-indigo-400", iconColor: "text-indigo-400", Icon: BarChart3, sparkPath: "M 0 22 L 12 8 L 28 18 L 42 4 L 58 14 L 74 10 L 88 24 L 100 12", sparkColor: "#818CF8" },
+        ].map((metric) => (
+          <div
+            key={metric.label}
+            className="group relative overflow-hidden p-4 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-2xl hover:border-[var(--text-tertiary)]/30 transition-all duration-300 hover:shadow-md"
+          >
+            <div className="flex items-start justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <metric.Icon className={`w-3.5 h-3.5 ${metric.iconColor} opacity-70`} />
+                  <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-widest">{metric.label}</p>
+                </div>
+                <p className={`text-2xl font-black tabular-nums ${metric.color}`}>{metric.value}</p>
+              </div>
+              <svg className="w-16 h-8 opacity-40 group-hover:opacity-70 transition-opacity shrink-0 mt-1" viewBox="0 0 100 30">
+                <path d={metric.sparkPath} fill="none" stroke={metric.sparkColor} strokeWidth="2.5" strokeLinecap="round" />
+              </svg>
+            </div>
           </div>
-          <svg className="w-12 h-6 text-zinc-400 shrink-0" viewBox="0 0 100 30">
-            <path d="M 0 25 L 20 22 L 40 18 L 60 14 L 80 8 L 100 4" fill="none" stroke="currentColor" strokeWidth="2" />
-          </svg>
-        </div>
-
-        {/* Active Agents */}
-        <div className="p-4 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-2xl flex items-center justify-between shadow-sm">
-          <div className="space-y-1">
-            <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Active Fleet</p>
-            <p className="text-2xl font-bold text-emerald-500">{activeAgents + runningAgents}</p>
-          </div>
-          <svg className="w-12 h-6 text-emerald-500 shrink-0" viewBox="0 0 100 30">
-            <path d="M 0 15 Q 25 5, 50 15 T 100 15" fill="none" stroke="currentColor" strokeWidth="2" />
-          </svg>
-        </div>
-
-        {/* Paused */}
-        <div className="p-4 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-2xl flex items-center justify-between shadow-sm">
-          <div className="space-y-1">
-            <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Paused</p>
-            <p className="text-2xl font-bold text-amber-500">{pausedAgents}</p>
-          </div>
-          <svg className="w-12 h-6 text-amber-500 shrink-0" viewBox="0 0 100 30">
-            <path d="M 0 20 L 50 20 L 100 20" fill="none" stroke="currentColor" strokeWidth="2" />
-          </svg>
-        </div>
-
-        {/* Errors / Alerts */}
-        <div className={`p-4 bg-[var(--bg-surface)] border rounded-2xl flex items-center justify-between shadow-sm transition-colors ${
-          errorAgents > 0 ? "border-red-500/25 bg-red-500/5 animate-pulse-health" : "border-[var(--border-color)]"
-        }`}>
-          <div className="space-y-1">
-            <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Active Alerts</p>
-            <p className={`text-2xl font-bold ${errorAgents > 0 ? "text-red-500" : "text-[var(--text-primary)]"}`}>{errorAgents}</p>
-          </div>
-          <svg className={`w-12 h-6 shrink-0 ${errorAgents > 0 ? "text-red-500" : "text-zinc-300"}`} viewBox="0 0 100 30">
-            {errorAgents > 0 ? (
-              <path d="M 0 25 L 70 25 L 80 5 L 90 25 L 100 25" fill="none" stroke="currentColor" strokeWidth="2" />
-            ) : (
-              <path d="M 0 25 L 100 25" fill="none" stroke="currentColor" strokeWidth="2" />
-            )}
-          </svg>
-        </div>
-
-        {/* Total Scans */}
-        <div className="p-4 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-2xl flex items-center justify-between shadow-sm">
-          <div className="space-y-1">
-            <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Total Scans</p>
-            <p className="text-2xl font-bold text-indigo-500">{totalRuns}</p>
-          </div>
-          <svg className="w-12 h-6 text-indigo-500 shrink-0" viewBox="0 0 100 30">
-            <path d="M 0 25 L 15 10 L 30 22 L 45 5 L 60 18 L 75 12 L 90 28 L 100 15" fill="none" stroke="currentColor" strokeWidth="2" />
-          </svg>
-        </div>
+        ))}
       </div>
 
-      {/* Main Split Operations Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* ═══════════════ MAIN CONTENT GRID ═══════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Operations Fleet Left Column (2/3) */}
-        <div className="lg:col-span-2 space-y-4">
+        {/* ═══ FLEET OPERATIONS (LEFT COLUMN — 8/12) ═══ */}
+        <div className="lg:col-span-8 space-y-4">
           
-          {/* Action Filters Panel */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
-            
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
+          {/* ─── Search & Filter Bar ─── */}
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center p-3 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-2xl">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search agent title, prompt..."
-                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                placeholder="Search agents by name, prompt, or target..."
+                className="w-full pl-10 pr-4 py-2.5 text-xs font-medium rounded-xl bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]/20 transition-all"
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2 shrink-0">
               <select
                 value={statusFilter}
                 onChange={(e: any) => setStatusFilter(e.target.value)}
-                className="px-2.5 py-2 text-xs rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] cursor-pointer"
+                className="px-3 py-2.5 text-xs font-semibold rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] cursor-pointer"
               >
                 <option value="all">All Statuses</option>
-                <option value="active">Active/Running</option>
+                <option value="active">Active / Running</option>
                 <option value="paused">Paused</option>
                 <option value="error">Error</option>
               </select>
@@ -493,346 +517,448 @@ export default function DashboardView() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-2.5 py-2 text-xs rounded-xl border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] cursor-pointer"
+                className="px-3 py-2.5 text-xs font-semibold rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] cursor-pointer"
               >
                 <option value="all">All Categories</option>
                 <option value="finance">Finance</option>
                 <option value="news">News</option>
                 <option value="cybersecurity">Cybersecurity</option>
                 <option value="competitive">Competitive Intel</option>
-                <option value="research">Academic/Research</option>
+                <option value="research">Research</option>
+                <option value="brand">Brand</option>
+                <option value="legal">Legal</option>
+                <option value="geopolitics">Geopolitics</option>
+                <option value="esg">ESG</option>
+                <option value="ecommerce">E-Commerce</option>
               </select>
             </div>
-
           </div>
 
-          {/* Bulk Action Toolbar */}
+          {/* ─── Bulk Action Toolbar ─── */}
           {selectedIds.size > 0 && (
-            <div className="flex items-center justify-between p-3 rounded-xl border border-[var(--accent)]/15 bg-[var(--accent-subtle)] text-[var(--accent)] animate-fade-in-up">
-              <div className="flex items-center gap-2">
-                <CheckSquare className="w-4 h-4 cursor-pointer" onClick={() => setSelectedIds(new Set())} />
-                <span className="text-xs font-semibold">{selectedIds.size} agents selected</span>
+            <div className="flex items-center justify-between p-3 rounded-2xl border border-[var(--accent)]/20 bg-[var(--accent)]/5 backdrop-blur-sm animate-fade-in-up">
+              <div className="flex items-center gap-2.5">
+                <button onClick={() => setSelectedIds(new Set())} className="p-1 rounded-lg hover:bg-[var(--accent)]/10 cursor-pointer transition-colors">
+                  <CheckSquare className="w-4 h-4 text-[var(--accent)]" />
+                </button>
+                <span className="text-xs font-bold text-[var(--accent)]">{selectedIds.size} agents selected</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={bulkResume}
-                  className="px-2.5 py-1 text-xs font-bold bg-[var(--bg-surface)] rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-surface-hover)] cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20 hover:bg-emerald-500/20 cursor-pointer transition-colors"
                 >
-                  Resume
+                  <Play className="w-3 h-3" /> Resume
                 </button>
                 <button
                   onClick={bulkPause}
-                  className="px-2.5 py-1 text-xs font-bold bg-[var(--bg-surface)] rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-surface-hover)] cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20 hover:bg-amber-500/20 cursor-pointer transition-colors"
                 >
-                  Pause
+                  <Pause className="w-3 h-3" /> Pause
                 </button>
                 <button
                   onClick={bulkDelete}
-                  className="px-2.5 py-1 text-xs font-bold bg-red-500/10 text-red-500 rounded-lg border border-red-500/20 hover:bg-red-500/20 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold bg-red-500/10 text-red-400 rounded-xl border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-colors"
                 >
-                  Delete
+                  <Trash2 className="w-3 h-3" /> Delete
                 </button>
-                {runningAgents > 0 && (
-                  <button
-                    onClick={stopAllAgents}
-                    className="px-2.5 py-1 text-xs font-bold bg-red-500/10 text-red-500 rounded-lg border border-red-500/20 hover:bg-red-500/20 cursor-pointer"
-                  >
-                    Stop All
-                  </button>
-                )}
               </div>
             </div>
           )}
 
-          {/* Category-Grouped Agent Table */}
-          <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl shadow-sm overflow-hidden">
+          {/* ═══ Category Groups with Agent Cards ═══ */}
+          <div className="space-y-4">
             {Object.keys(groupedTasks).length === 0 ? (
-              <div className="text-center py-12 text-xs text-[var(--text-tertiary)]">
-                No agents match the current filter query.
+              <div className="flex flex-col items-center justify-center py-16 px-6 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-2xl text-center">
+                <Search className="w-8 h-8 text-[var(--text-tertiary)] mb-3 opacity-40" />
+                <p className="text-sm font-semibold text-[var(--text-secondary)]">No agents match your filters</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">Try adjusting your search or filter criteria.</p>
               </div>
             ) : (
-              <div className="divide-y divide-[var(--border-color)]">
-                {Object.entries(groupedTasks).map(([cat, catTasks]) => {
-                  const meta = getCategoryMeta(cat);
-                  const CatIcon = meta.icon;
-                  const isCollapsed = collapsedCategories.has(cat);
+              Object.entries(groupedTasks).map(([cat, catTasks]) => {
+                const meta = getCategoryMeta(cat);
+                const CatIcon = meta.icon;
+                const isCollapsed = collapsedCategories.has(cat);
 
-                  return (
-                    <div key={cat} className="space-y-0.5">
-                      {/* Collapsible Group Header */}
-                      <div 
-                        onClick={() => toggleCategory(cat)}
-                        className="flex items-center justify-between p-3.5 bg-[var(--bg-primary)]/40 hover:bg-[var(--bg-primary)]/80 cursor-pointer transition-colors"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className={`p-1.5 rounded-lg ${meta.colorClass}`}>
-                            <CatIcon className="w-3.5 h-3.5" />
-                          </div>
-                          <span className="text-xs font-bold uppercase tracking-wider">{meta.title}</span>
-                          <span className="text-[10px] font-semibold text-[var(--text-tertiary)] px-2 py-0.5 rounded-full bg-[var(--bg-surface-hover)]">
-                            {catTasks.length}
-                          </span>
+                return (
+                  <div key={cat} className="border border-[var(--border-color)] rounded-2xl overflow-hidden bg-[var(--bg-surface)] shadow-sm">
+                    {/* ─── Category Header ─── */}
+                    <button
+                      onClick={() => toggleCategory(cat)}
+                      className="w-full flex items-center justify-between p-4 hover:bg-[var(--bg-surface-hover)] cursor-pointer transition-colors duration-200"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl bg-gradient-to-br ${meta.gradient} border border-[var(--border-color)]`}>
+                          <CatIcon className={`w-4 h-4 ${meta.colorClass}`} />
                         </div>
-                        {isCollapsed ? <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" /> : <ChevronDown className="w-4 h-4 text-[var(--text-tertiary)]" />}
+                        <span className="text-sm font-bold tracking-tight">{meta.title}</span>
+                        <span className="text-[10px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-primary)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
+                          {catTasks.length}
+                        </span>
                       </div>
+                      <div className="flex items-center gap-2">
+                        {/* Select all toggle */}
+                        <div
+                          onClick={(e) => { e.stopPropagation(); toggleSelectAll(catTasks); }}
+                          className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer transition-colors px-2 py-1 rounded-lg hover:bg-[var(--bg-primary)]"
+                        >
+                          {selectedIds.size === catTasks.length && catTasks.every(t => selectedIds.has(t.id)) ? (
+                            <CheckSquare className="w-3.5 h-3.5 text-[var(--accent)]" />
+                          ) : (
+                            <Square className="w-3.5 h-3.5" />
+                          )}
+                          <span>All</span>
+                        </div>
+                        <div className="w-px h-4 bg-[var(--border-color)]" />
+                        {isCollapsed ? (
+                          <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-[var(--text-tertiary)]" />
+                        )}
+                      </div>
+                    </button>
 
-                      {/* Group Table Rows */}
-                      {!isCollapsed && (
-                        <div className="p-4 bg-[var(--bg-primary)]/15 border-t border-[var(--border-color)] space-y-3">
-                          {/* Card Selection Toolbar */}
-                          <div className="flex items-center justify-between px-1 text-[11px] font-semibold">
-                            <button
-                              onClick={() => toggleSelectAll(catTasks)}
-                              className="flex items-center gap-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer select-none transition-colors"
-                            >
-                              {selectedIds.size === catTasks.length ? (
-                                <CheckSquare className="w-4 h-4 text-[var(--accent)]" />
-                              ) : (
-                                <Square className="w-4 h-4" />
-                              )}
-                              <span>Select All ({catTasks.length})</span>
-                            </button>
-                          </div>
+                    {/* ─── Agent Cards Grid ─── */}
+                    {!isCollapsed && (
+                      <div className="p-4 pt-3 border-t border-[var(--border-color)]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {catTasks.map((task) => {
+                            const isSelected = selectedIds.has(task.id);
+                            const isEditing = editingId === task.id;
+                            const cardMeta = getCategoryMeta(task.category);
+                            const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
-                          {/* Cards Grid */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                            {catTasks.map((task) => {
-                              const isSelected = selectedIds.has(task.id);
-                              const isEditing = editingId === task.id;
-
-                              return (
-                                <div
-                                  key={task.id}
-                                  className={`bg-[var(--bg-surface)] border rounded-2xl p-4 flex flex-col justify-between min-h-[195px] transition-all duration-200 group relative ${
-                                    isSelected 
-                                      ? "border-[var(--accent)] shadow-sm bg-[var(--accent-subtle)]/15" 
-                                      : "border-[var(--border-color)] hover:border-[var(--text-tertiary)]/40 hover:shadow-md"
-                                  }`}
+                            return (
+                              <div
+                                key={task.id}
+                                onClick={() => router.push(`/agents/${task.id}`)}
+                                className={`
+                                  group relative rounded-2xl overflow-hidden cursor-pointer
+                                  flex flex-col
+                                  border transition-all duration-300 ease-out
+                                  hover:-translate-y-1.5 hover:shadow-xl
+                                  ${isSelected 
+                                    ? "border-[var(--accent)] ring-2 ring-[var(--accent)]/20 shadow-lg" 
+                                    : "border-[var(--border-color)] shadow-sm hover:border-[var(--text-tertiary)]/30"
+                                  }
+                                `}
+                              >
+                                {/* ══ COLORED HEADER BAND ══ */}
+                                <div 
+                                  className="px-4 py-3 space-y-2.5"
+                                  style={{ backgroundColor: isDark ? cardMeta.headerBgDark : cardMeta.headerBg }}
                                 >
-                                  {/* Top Row: Checkbox, Name, Status */}
-                                  <div className="space-y-2">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        {/* Checkbox */}
-                                        <button 
-                                          onClick={() => toggleSelectOne(task.id)}
-                                          className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer shrink-0 transition-colors"
-                                        >
-                                          {isSelected ? (
-                                            <CheckSquare className="w-4.5 h-4.5 text-[var(--accent)]" />
-                                          ) : (
-                                            <Square className="w-4.5 h-4.5 opacity-60 group-hover:opacity-100" />
-                                          )}
-                                        </button>
-                                        
-                                        {/* Title / Rename */}
-                                        {isEditing ? (
-                                          <div className="flex items-center gap-1.5 min-w-0">
-                                            <input
-                                              type="text"
-                                              value={editTitle}
-                                              onChange={(e) => setEditTitle(e.target.value)}
-                                              onKeyDown={(e) => {
-                                                if (e.key === "Enter") saveRename(task.id);
-                                                else if (e.key === "Escape") cancelRename();
-                                              }}
-                                              className="px-2 py-0.5 text-xs rounded border border-[var(--accent)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:outline-none w-full max-w-[120px]"
-                                              autoFocus
-                                            />
-                                            <button onClick={() => saveRename(task.id)} className="p-1 text-emerald-500 hover:bg-emerald-500/10 rounded cursor-pointer shrink-0">
-                                              <Check className="w-3.5 h-3.5" />
-                                            </button>
-                                            <button onClick={cancelRename} className="p-1 text-red-500 hover:bg-red-500/10 rounded cursor-pointer shrink-0">
-                                              <X className="w-3.5 h-3.5" />
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center gap-1 min-w-0 group/title">
-                                            <button
-                                              onClick={() => {
-                                                router.push(`/agents/${task.id}`);
-                                              }}
-                                              className="font-bold text-xs text-[var(--text-primary)] hover:text-[var(--accent)] text-left cursor-pointer truncate max-w-[120px] tracking-wide"
-                                            >
-                                              {task.title}
-                                            </button>
-                                            <button 
-                                              onClick={() => startEditing(task)}
-                                              className="opacity-0 group-hover/title:opacity-100 p-0.5 rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer transition-opacity"
-                                            >
-                                              <Edit2 className="w-3 h-3" />
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
-                                      
-                                      {/* Status Badge */}
-                                      <div className="shrink-0">
-                                        {getStatusBadge(task.status)}
-                                      </div>
-                                    </div>
-
-                                    {/* Prompt/Target Preview */}
-                                    <p className="text-[11px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed min-h-[32px] pl-6.5 font-medium">
-                                      {task.prompt || task.target || "No search prompt defined."}
-                                    </p>
+                                  {/* Row 1: Checkbox + Status Badge */}
+                                  <div className="flex items-center justify-between">
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); toggleSelectOne(task.id); }}
+                                      className="text-[var(--text-tertiary)] hover:text-[var(--accent)] cursor-pointer shrink-0 transition-colors"
+                                    >
+                                      {isSelected ? (
+                                        <CheckSquare className="w-4 h-4 text-[var(--accent)]" />
+                                      ) : (
+                                        <Square className="w-4 h-4 opacity-40 group-hover:opacity-80 transition-opacity" />
+                                      )}
+                                    </button>
+                                    {getStatusBadge(task.status)}
                                   </div>
 
-                                  {/* Bottom Row: Stats & Action buttons */}
-                                  <div className="mt-4 pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between">
-                                    {/* Execution Stats */}
-                                    <div className="flex flex-col gap-0.5 text-[9px] text-[var(--text-tertiary)] pl-1.5 font-bold uppercase tracking-wider">
-                                      <div className="flex items-center gap-1">
-                                        <Clock className="w-2.5 h-2.5" />
-                                        <span>{task.schedule.label}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Activity className="w-2.5 h-2.5 text-indigo-500" />
-                                        <span>{task.runCount || 0} Runs · {task.lastRunAt ? formatRelativeTime(task.lastRunAt) : "Never"}</span>
-                                      </div>
+                                  {/* Row 2: Icon + Full Title */}
+                                  <div className="flex items-start gap-2.5">
+                                    <div className="p-1.5 rounded-lg shrink-0 bg-white/50 dark:bg-white/10 backdrop-blur-sm">
+                                      {getAgentTypeIcon(task)}
                                     </div>
 
-                                    {/* Actions */}
-                                    <div className="flex items-center gap-0.5">
-                                      {/* Run Now */}
-                                      <button
-                                        onClick={() => runTask(task.id)}
-                                        className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer inline-flex"
-                                        title="Run Scan Now"
-                                        disabled={task.status === "running"}
-                                      >
-                                        <Play className={`w-3.5 h-3.5 ${task.status === "running" ? "text-zinc-300" : "fill-current"}`} />
-                                      </button>
-
-                                      {/* Pause / Resume */}
-                                      {task.status === "paused" ? (
-                                        <button
-                                          onClick={() => setTaskStatus(task.id, "active")}
-                                          className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-emerald-500 cursor-pointer inline-flex"
-                                          title="Resume Agent"
-                                        >
-                                          <Play className="w-3.5 h-3.5" />
-                                        </button>
-                                      ) : task.status === "running" ? (
-                                        <button
-                                          onClick={() => stopTask(task.id)}
-                                          className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 cursor-pointer inline-flex"
-                                          title="Stop Agent"
-                                        >
-                                          <Pause className="w-3.5 h-3.5" />
-                                        </button>
+                                    <div className="min-w-0 flex-1">
+                                      {isEditing ? (
+                                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                          <input
+                                            type="text"
+                                            value={editTitle}
+                                            onChange={(e) => setEditTitle(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") saveRename(task.id);
+                                              else if (e.key === "Escape") cancelRename();
+                                            }}
+                                            maxLength={60}
+                                            className="px-2 py-1 text-sm font-bold rounded-lg border border-[var(--accent)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:outline-none w-full"
+                                            autoFocus
+                                          />
+                                          <button onClick={(e) => { e.stopPropagation(); saveRename(task.id); }} className="p-1 text-emerald-500 hover:bg-emerald-500/10 rounded-lg cursor-pointer">
+                                            <Check className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button onClick={(e) => { e.stopPropagation(); cancelRename(); }} className="p-1 text-red-500 hover:bg-red-500/10 rounded-lg cursor-pointer">
+                                            <X className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
                                       ) : (
-                                        <button
-                                          onClick={() => setTaskStatus(task.id, "paused")}
-                                          className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-amber-500 cursor-pointer inline-flex"
-                                          title="Pause Agent"
-                                        >
-                                          <Pause className="w-3.5 h-3.5" />
-                                        </button>
+                                        <div className="group/title">
+                                          <div className="flex items-start gap-1.5">
+                                            <h4 className="text-[13px] font-bold text-[var(--text-primary)] leading-snug line-clamp-2">
+                                              {task.title.length > 60 ? task.title.slice(0, 60) + '…' : task.title}
+                                            </h4>
+                                            <button 
+                                              onClick={(e) => { e.stopPropagation(); startEditing(task); }}
+                                              className="opacity-0 group-hover/title:opacity-100 p-0.5 rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer transition-all mt-0.5 shrink-0"
+                                            >
+                                              <Edit2 className="w-2.5 h-2.5" />
+                                            </button>
+                                          </div>
+                                        </div>
                                       )}
-
-                                      {/* View detail */}
-                                      <button
-                                        onClick={() => {
-                                          router.push(`/agents/${task.id}`);
-                                        }}
-                                        className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer inline-flex"
-                                        title="View Reports & History"
-                                      >
-                                        <FileText className="w-3.5 h-3.5" />
-                                      </button>
-
-                                      {/* Delete */}
-                                      <button
-                                        onClick={() => {
-                                          if (confirm(`Delete agent "${task.title}"?`)) {
-                                            deleteTask(task.id);
-                                          }
-                                        }}
-                                        className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 hover:text-red-600 cursor-pointer inline-flex"
-                                        title="Delete Agent"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
                                     </div>
                                   </div>
                                 </div>
-                              );
-                            })}
-                          </div>
+
+                                {/* ══ CARD BODY ══ */}
+                                <div className="flex-1 bg-[var(--bg-surface)] px-4 py-4 flex flex-col justify-between gap-4">
+                                  {/* Agent description — single sentence from prompt */}
+                                  <p className="text-[12px] text-[var(--text-secondary)] leading-relaxed line-clamp-2 font-medium">
+                                    {(() => {
+                                      const text = task.prompt || task.target || "No description available.";
+                                      // Extract first sentence or truncate
+                                      const firstSentence = text.match(/^[^.!?]*[.!?]/) ? text.match(/^[^.!?]*[.!?]/)![0] : text;
+                                      return firstSentence.length > 120 ? firstSentence.slice(0, 120) + '…' : firstSentence;
+                                    })()}
+                                  </p>
+
+                                  {/* Meta row: schedule + runs + last run */}
+                                  <div className="flex items-center gap-3 flex-wrap">
+                                    <div className="flex items-center gap-1 text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">
+                                      <Clock className="w-2.5 h-2.5" />
+                                      <span>{task.schedule.label}</span>
+                                    </div>
+                                    <div className="w-px h-3 bg-[var(--border-color)]" />
+                                    <div className="flex items-center gap-1 text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">
+                                      <Activity className="w-2.5 h-2.5 text-indigo-400" />
+                                      <span>{task.runCount || 0} runs</span>
+                                    </div>
+                                    {task.lastRunAt && (
+                                      <>
+                                        <div className="w-px h-3 bg-[var(--border-color)]" />
+                                        <span className="text-[9px] font-medium text-[var(--text-tertiary)]">
+                                          {formatRelativeTime(task.lastRunAt)}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* ══ ACTION BAR — Run / Pause / Delete only ══ */}
+                                <div className="px-4 py-2.5 border-t border-[var(--border-color)] bg-[var(--bg-surface)] flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center gap-1.5">
+                                    {/* Run */}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); runTask(task.id); }}
+                                      disabled={task.status === "running"}
+                                      className={`
+                                        inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[10px] font-bold rounded-xl cursor-pointer transition-all duration-200
+                                        ${task.status === "running" 
+                                          ? "bg-[var(--bg-primary)] text-[var(--text-tertiary)] opacity-40 cursor-not-allowed" 
+                                          : "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:shadow-sm active:scale-95"
+                                        }
+                                      `}
+                                      title="Run Scan Now"
+                                    >
+                                      <Play className="w-3 h-3 fill-current" />
+                                      <span>Run</span>
+                                    </button>
+
+                                    {/* Pause / Resume / Stop */}
+                                    {task.status === "paused" ? (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setTaskStatus(task.id, "active"); }}
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[10px] font-bold rounded-xl bg-sky-500/10 text-sky-500 dark:text-sky-400 border border-sky-500/20 hover:bg-sky-500/20 cursor-pointer transition-all active:scale-95"
+                                        title="Resume Agent"
+                                      >
+                                        <RotateCcw className="w-3 h-3" />
+                                        <span>Resume</span>
+                                      </button>
+                                    ) : task.status === "running" ? (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); stopTask(task.id); }}
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[10px] font-bold rounded-xl bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20 hover:bg-red-500/20 cursor-pointer transition-all active:scale-95"
+                                        title="Stop Agent"
+                                      >
+                                        <StopCircle className="w-3 h-3" />
+                                        <span>Stop</span>
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setTaskStatus(task.id, "paused"); }}
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[10px] font-bold rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 cursor-pointer transition-all active:scale-95"
+                                        title="Pause Agent"
+                                      >
+                                        <Pause className="w-3 h-3" />
+                                        <span>Pause</span>
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Delete */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (confirm(`Delete agent "${task.title}"?`)) {
+                                        deleteTask(task.id);
+                                      }
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold rounded-xl text-red-400/70 hover:text-red-400 hover:bg-red-400/10 cursor-pointer transition-all active:scale-95"
+                                    title="Delete Agent"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-        </div>
-
-        {/* Live Feed Column Right (1/3) */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
-            <Activity className="w-4 h-4 text-[var(--accent)] animate-pulse" />
-            Live Operations Feed
-          </h3>
-
-          <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-4 space-y-4 max-h-[520px] overflow-y-auto shadow-sm">
-            {recentActivityLogs.length === 0 ? (
-              <div className="text-center py-12 text-xs text-[var(--text-tertiary)]">
-                No activity scans recorded yet. Trigger "Run Scan Now" to generate logs.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentActivityLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    onClick={() => {
-                      router.push(`/agents/${log.taskId}`);
-                    }}
-                    className="p-3 text-[11px] rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)]/20 hover:bg-[var(--bg-surface-hover)] cursor-pointer transition-all duration-150 relative overflow-hidden group"
-                  >
-                    {/* Severity highlight border */}
-                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${
-                      log.severity === "alert" ? "bg-[var(--status-critical)]" :
-                      log.severity === "warning" ? "bg-[var(--status-warning)]" :
-                      "bg-[var(--status-info)]"
-                    }`} />
-                    
-                    <div className="flex justify-between items-start gap-2 pl-1.5">
-                      <span className="font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] line-clamp-1 transition-colors">
-                        {log.taskTitle}
-                      </span>
-                      <span className="text-[9px] text-[var(--text-tertiary)] shrink-0 font-medium flex items-center gap-1">
-                        <Clock className="w-2.5 h-2.5" />
-                        {formatRelativeTime(log.timestamp)}
-                      </span>
-                    </div>
-
-                    <p className="text-[var(--text-secondary)] leading-relaxed mt-1.5 pl-1.5 italic line-clamp-2">
-                      {log.summary}
-                    </p>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })
             )}
           </div>
         </div>
 
+        {/* ═══ INTELLIGENCE FEED (RIGHT COLUMN — 4/12) ═══ */}
+        <div className="lg:col-span-4 space-y-4">
+          
+          {/* ─── Live Activity Feed ─── */}
+          <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="relative">
+                  <Radio className="w-4 h-4 text-[var(--accent)]" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--accent)] animate-ping" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--accent)]" />
+                </div>
+                <h3 className="text-xs font-bold uppercase tracking-wider">Live Feed</h3>
+              </div>
+              <span className="text-[9px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-primary)] px-2 py-0.5 rounded-full border border-[var(--border-color)]">
+                {recentActivityLogs.length} events
+              </span>
+            </div>
+
+            <div className="max-h-[480px] overflow-y-auto">
+              {recentActivityLogs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-[var(--bg-primary)] border border-dashed border-[var(--border-color)] flex items-center justify-center mb-3">
+                    <Activity className="w-5 h-5 text-[var(--text-tertiary)] opacity-40" />
+                  </div>
+                  <p className="text-xs font-semibold text-[var(--text-secondary)]">No activity yet</p>
+                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1 max-w-[180px] leading-relaxed">
+                    Trigger "Run" on an agent to generate intelligence logs.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[var(--border-color)]">
+                  {recentActivityLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      onClick={() => router.push(`/agents/${log.taskId}`)}
+                      className="p-3.5 hover:bg-[var(--bg-surface-hover)] cursor-pointer transition-colors duration-150 relative group"
+                    >
+                      {/* Severity accent bar */}
+                      <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${
+                        log.severity === "alert" ? "bg-red-400" :
+                        log.severity === "warning" ? "bg-amber-400" :
+                        "bg-[var(--accent)]/40"
+                      }`} />
+                      
+                      <div className="pl-2.5 space-y-1.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="text-[11px] font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] line-clamp-1 transition-colors">
+                            {log.taskTitle}
+                          </span>
+                          <span className="text-[9px] text-[var(--text-tertiary)] shrink-0 font-medium flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {formatRelativeTime(log.timestamp)}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed line-clamp-2">
+                          {log.summary}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ─── Quick Fleet Overview ─── */}
+          <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-4 shadow-sm space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-[var(--accent)]" />
+              Fleet Health
+            </h3>
+            
+            {/* Status breakdown bar */}
+            <div className="space-y-2">
+              {totalAgents > 0 && (
+                <div className="flex rounded-full overflow-hidden h-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)]">
+                  {(activeAgents + runningAgents) > 0 && (
+                    <div 
+                      className="bg-emerald-400 transition-all duration-500" 
+                      style={{ width: `${((activeAgents + runningAgents) / totalAgents) * 100}%` }}
+                      title={`${activeAgents + runningAgents} active`}
+                    />
+                  )}
+                  {pausedAgents > 0 && (
+                    <div 
+                      className="bg-amber-400 transition-all duration-500" 
+                      style={{ width: `${(pausedAgents / totalAgents) * 100}%` }}
+                      title={`${pausedAgents} paused`}
+                    />
+                  )}
+                  {errorAgents > 0 && (
+                    <div 
+                      className="bg-red-400 transition-all duration-500" 
+                      style={{ width: `${(errorAgents / totalAgents) * 100}%` }}
+                      title={`${errorAgents} errors`}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Legend */}
+              <div className="flex flex-wrap gap-3 text-[10px] font-bold">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="text-[var(--text-tertiary)]">Active ({activeAgents + runningAgents})</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span className="text-[var(--text-tertiary)]">Paused ({pausedAgents})</span>
+                </div>
+                {errorAgents > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-red-400" />
+                    <span className="text-[var(--text-tertiary)]">Error ({errorAgents})</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Execution Heatmap Block (Bottom) */}
+      {/* ═══════════════ EXECUTION HEATMAP ═══════════════ */}
       <div className="border border-[var(--border-color)] bg-[var(--bg-surface)] rounded-2xl p-5 shadow-sm space-y-4">
         <div className="flex justify-between items-center border-b border-[var(--border-color)] pb-3">
-          <div>
-            <h3 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
-              <SlidersHorizontal className="w-4 h-4 text-[var(--accent)]" />
-              Scan Execution Density (Last 7 Days)
-            </h3>
-            <p className="text-[10px] text-[var(--text-tertiary)]">Visual representation of background agent polling intervals and runs.</p>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-[var(--accent)]/15 to-transparent border border-[var(--accent)]/10">
+              <BarChart3 className="w-4 h-4 text-[var(--accent)]" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold tracking-tight">Scan Execution Density</h3>
+              <p className="text-[10px] text-[var(--text-tertiary)]">Agent polling activity across the last 7 days</p>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 text-[9px] text-[var(--text-tertiary)]">
+          <div className="flex items-center gap-1.5 text-[9px] text-[var(--text-tertiary)] font-medium">
             <span>Fewer</span>
             <span className="w-2.5 h-2.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-sm" />
             <span className="w-2.5 h-2.5 bg-[var(--accent)]/10 rounded-sm" />

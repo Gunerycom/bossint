@@ -8,22 +8,22 @@
 
 /* Light mode (default) */
 :root {
-  --bg-primary: #F8F9FA;
+  --bg-primary: #F4F4F6;
   --bg-surface: #FFFFFF;
-  --bg-surface-hover: #F1F3F5;
-  --bg-user-bubble: #E9ECEF;
-  --text-primary: #1A1E23;
-  --text-secondary: #495057;
-  --text-tertiary: #868E96;
+  --bg-surface-hover: #F8F9FA;
+  --bg-user-bubble: #E4E4E7;
+  --text-primary: #18181B;
+  --text-secondary: #3F3F46;
+  --text-tertiary: #71717A;
   --accent: #6366F1;
   --accent-hover: #4F46E5;
   --accent-subtle: rgba(99, 102, 241, 0.08);
-  --border-color: #E9ECEF;
-  --border-subtle: #F1F3F5;
-  --shadow-sm: 0 1px 2px rgba(26, 30, 35, 0.04);
-  --shadow-md: 0 4px 12px rgba(26, 30, 35, 0.06);
-  --code-bg: #F1F3F5;
-  --code-border: #E9ECEF;
+  --border-color: #D4D4D8;
+  --border-subtle: #E4E4E7;
+  --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.05);
+  --shadow-md: 0 4px 12px rgba(24, 24, 27, 0.08);
+  --code-bg: #E4E4E7;
+  --code-border: #D4D4D8;
   --thinking-bg: rgba(99, 102, 241, 0.04);
   --thinking-border: rgba(99, 102, 241, 0.15);
   --error-bg: #FFF5F5;
@@ -404,34 +404,3 @@ textarea {
   grid-template-columns: repeat(24, minmax(0, 1fr));
 }
 
-/* ========================================
-   Neon Blue Pulse Animation
-   ======================================== */
-
-@keyframes neon-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(0, 210, 255, 0), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
-    border-color: var(--border-color) !important;
-  }
-  25% {
-    box-shadow: 0 0 12px 2px rgba(0, 210, 255, 0.45), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
-    border-color: rgba(0, 210, 255, 0.75) !important;
-  }
-  50% {
-    box-shadow: 0 0 20px 4px rgba(0, 210, 255, 0.7), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
-    border-color: rgba(0, 210, 255, 1) !important;
-  }
-  75% {
-    box-shadow: 0 0 12px 2px rgba(0, 210, 255, 0.45), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
-    border-color: rgba(0, 210, 255, 0.75) !important;
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(0, 210, 255, 0), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
-    border-color: var(--border-color) !important;
-  }
-}
-
-.animate-neon-pulse {
-  animation: neon-pulse 2.2s ease-in-out infinite !important;
-  transition: none !important;
-}

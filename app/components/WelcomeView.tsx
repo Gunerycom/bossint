@@ -195,7 +195,7 @@ const TRENDING_AGENTS: TrendingAgent[] = [
     gradient: "from-yellow-400 via-amber-500 to-orange-600",
     iconName: "Heart",
     coverImage: "/brand-sentiment-cover.png",
-    prompt: "Query news indices for brand and executive mentions. Record the sentiment context (positive/negative/neutral) and domain authority.",
+    prompt: "Monitor media coverage related to (COMPANY NAME) by querying global news indexes for mentions of the company, its brands, subsidiaries, and key executives. For each mention, capture the source, publication date, sentiment (positive, negative, or neutral), overall context, and the publishing domain's authority or credibility. Highlight significant trends, emerging narratives, reputational risks, and high-impact coverage.",
     schedule: "daily",
     taskType: "monitor"
   }

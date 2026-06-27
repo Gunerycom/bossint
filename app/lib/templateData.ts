@@ -494,7 +494,7 @@ const generateTemplates = (): AgentTemplate[] => {
         {
           title: "Media Coverage Monitor",
           desc: "Monitor volume and placement of brand or executive mentions",
-          prompt: "Query news indices for brand and executive mentions. Record the sentiment context (positive/negative/neutral) and domain authority.",
+          prompt: "Monitor media coverage related to (COMPANY NAME) by querying global news indexes for mentions of the company, its brands, subsidiaries, and key executives. For each mention, capture the source, publication date, sentiment (positive, negative, or neutral), overall context, and the publishing domain's authority or credibility. Highlight significant trends, emerging narratives, reputational risks, and high-impact coverage.",
           schedule: "daily",
           type: "monitor",
           tags: ["media", "pr", "mentions"]

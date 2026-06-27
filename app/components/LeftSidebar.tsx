@@ -66,10 +66,10 @@ export default function LeftSidebar({
   const renderNavItems = () => {
     const items = [
       { id: "welcome", label: "Create Agent", icon: Sparkles, action: () => handleNavClick("welcome") },
-      { id: "hub", label: "My Hub", icon: Cpu, action: () => handleNavClick("hub") },
       { id: "chat", label: "Research Chat", icon: Plus, action: handleNewResearch },
       { id: "explore", label: "Agent Library", icon: Compass, action: () => handleNavClick("explore") },
       { id: "dashboard", label: "My Agents", icon: LayoutDashboard, action: () => handleNavClick("dashboard") },
+      { id: "hub", label: "My Hub", icon: Cpu, action: () => handleNavClick("hub") },
     ] as const;
 
     return (

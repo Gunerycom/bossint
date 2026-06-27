@@ -160,22 +160,32 @@ export default function CreateAgentView({
   // Prompt input state
   const [customPrompt, setCustomPrompt] = useState("");
 
-  // Pulse animation state (activates 2 seconds after mount to draw attention to the prompt area)
-  const [shouldPulse, setShouldPulse] = useState(false);
+  // Intro animation state (runs exactly once on mount, starting after 2 seconds delay, to highlight the console)
+  const [isIntroAnimating, setIsIntroAnimating] = useState(false);
   const hasInteractedRef = useRef(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    // Start the border animation after 2 seconds of page load
+    const startTimer = setTimeout(() => {
       if (!hasInteractedRef.current) {
-        setShouldPulse(true);
+        setIsIntroAnimating(true);
       }
     }, 2000);
-    return () => clearTimeout(timer);
+
+    // End the animation after it completes (10 seconds animation duration)
+    const endTimer = setTimeout(() => {
+      setIsIntroAnimating(false);
+    }, 12000); // 2000ms delay + 10000ms animation duration
+
+    return () => {
+      clearTimeout(startTimer);
+      clearTimeout(endTimer);
+    };
   }, []);
 
-  const handleFocus = () => {
+  const handleInteraction = () => {
     hasInteractedRef.current = true;
-    setShouldPulse(false);
+    setIsIntroAnimating(false);
   };
 
   // Schedule and Delivery states
@@ -252,31 +262,19 @@ export default function CreateAgentView({
   return (
     <div className="min-h-full bg-[var(--bg-primary)] text-[var(--text-primary)] select-none relative overflow-y-auto">
       <style>{`
-        @keyframes neon-pulse {
+        @keyframes intro-border-fade {
           0% {
-            box-shadow: 0 0 0 0 rgba(0, 210, 255, 0), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
-            border-color: var(--border-color) !important;
-          }
-          25% {
-            box-shadow: 0 0 14px 3px rgba(0, 210, 255, 0.5), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
-            border-color: rgba(0, 210, 255, 0.8) !important;
-          }
-          50% {
-            box-shadow: 0 0 24px 6px rgba(0, 210, 255, 0.85), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
-            border-color: rgba(0, 210, 255, 1) !important;
-          }
-          75% {
-            box-shadow: 0 0 14px 3px rgba(0, 210, 255, 0.5), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
-            border-color: rgba(0, 210, 255, 0.8) !important;
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 4px var(--accent-subtle), var(--shadow-md) !important;
           }
           100% {
-            box-shadow: 0 0 0 0 rgba(0, 210, 255, 0), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
             border-color: var(--border-color) !important;
+            box-shadow: var(--shadow-md) !important;
           }
         }
 
-        .animate-neon-pulse {
-          animation: neon-pulse 2.2s ease-in-out infinite !important;
+        .animate-intro-fade {
+          animation: intro-border-fade 10s cubic-bezier(0.16, 1, 0.3, 1) 1 forwards !important;
           transition: none !important;
         }
       `}</style>
@@ -357,7 +355,7 @@ export default function CreateAgentView({
             onClick={() => {
               document.getElementById("ready-agents-section")?.scrollIntoView({ behavior: "smooth" });
             }}
-            className="bg-[#FBF9F6] dark:bg-zinc-900 border border-[#E8E4DC] dark:border-[var(--border-color)] hover:border-zinc-400 dark:hover:border-[var(--text-tertiary)] rounded-[20px] p-5 flex items-center justify-between transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md group cursor-pointer text-left relative overflow-hidden"
+            className="bg-[#EAE8E4] dark:bg-zinc-900 border border-[#D4D1CA] dark:border-[var(--border-color)] hover:border-zinc-400 dark:hover:border-[var(--text-tertiary)] rounded-[20px] p-5 flex items-center justify-between transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md group cursor-pointer text-left relative overflow-hidden"
           >
             {/* Left side: Bigger text with subtext, no icon */}
             <div className="flex flex-col gap-1 min-w-0 pr-4 relative z-10 select-none pointer-events-none">
@@ -371,7 +369,7 @@ export default function CreateAgentView({
 
             {/* Right side: Explore button CTA */}
             <div
-              className="px-5 py-2.5 rounded-xl bg-transparent text-zinc-900 dark:text-white border border-zinc-300 dark:border-zinc-700 group-hover:border-zinc-900 dark:group-hover:border-white text-xs font-bold shrink-0 relative z-10 select-none pointer-events-none transition-all duration-200"
+              className="px-5 py-2.5 rounded-xl bg-transparent text-zinc-900 dark:text-white border border-zinc-400 dark:border-zinc-700 group-hover:border-zinc-900 dark:group-hover:border-white text-xs font-bold shrink-0 relative z-10 select-none pointer-events-none transition-all duration-200"
             >
               Explore
             </div>
@@ -385,10 +383,10 @@ export default function CreateAgentView({
             <form onSubmit={handlePromptSubmitForm} className="relative w-full text-left">
               <div 
                 className={`w-full rounded-[24px] border border-[var(--border-color)] bg-[var(--bg-surface)] focus-within:border-[var(--accent)] focus-within:ring-4 focus-within:ring-[var(--accent)]/10 shadow-lg p-3.5 transition-all duration-350 ${
-                  shouldPulse ? "animate-neon-pulse" : ""
+                  isIntroAnimating ? "animate-intro-fade" : ""
                 }`}
-                onFocus={handleFocus}
-                onClick={handleFocus}
+                onFocus={handleInteraction}
+                onClick={handleInteraction}
               >
                 {/* Prompt input */}
                 <textarea
